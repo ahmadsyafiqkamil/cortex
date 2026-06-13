@@ -20,6 +20,10 @@ from openai import OpenAI
 # Defensive JSON extraction: strip ```json fences some models wrap output in.
 _FENCE = re.compile(r"^\s*```(?:json)?\s*|\s*```\s*$", re.IGNORECASE)
 
+# Reasoning models (e.g. MiniMax-M3) prepend a <think>...</think> block to the content.
+# It's chain-of-thought, never the intended output, and it breaks JSON parsing.
+_THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
 
 class LLMConfigError(RuntimeError):
     """Raised when required LLM_* environment variables are missing."""
@@ -101,7 +105,9 @@ class LLMClient:
             else:
                 raise LLMResponseError(f"LLM request failed: {exc}") from exc
 
-        content = (resp.choices[0].message.content or "").strip()
+        content = resp.choices[0].message.content or ""
+        # Drop chain-of-thought so callers get only the intended output.
+        content = _THINK.sub("", content).strip()
         if not content:
             raise LLMResponseError("LLM returned empty content.")
         return content
