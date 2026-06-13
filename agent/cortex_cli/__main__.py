@@ -28,6 +28,12 @@ except ImportError:  # pragma: no cover - fallback when package layout differs
 app = typer.Typer(help="Cortex — decentralized knowledge base maintained by AI agents.")
 
 
+@app.callback()
+def _root() -> None:
+    """Cortex CLI. Subcommands (ingest/query/lint/...) are added in later days."""
+    # Forces Typer to keep named subcommands even while only one exists.
+
+
 @app.command("llm-smoke")
 def llm_smoke(
     prompt: str = typer.Option(
