@@ -33,10 +33,25 @@ WORKDIR /home/cortex
 # --- suiup: official installer for sui / walrus / site-builder ---
 # suiup ships prebuilt binaries (no Rust toolchain needed in the image).
 # If the install URL changes, see github.com/MystenLabs/suiup and docs.sui.io.
+# Install, then explicitly set each binary as the active default so
+# `sui`/`walrus`/`site-builder` resolve on PATH (install alone does not set a default).
+#
+# suiup + install.sh hit the GitHub API for release lists. The anonymous limit is
+# 60 req/hr per IP — a clean rebuild can 403 if that budget is exhausted. Pass a token
+# (5000 req/hr) to avoid it:  docker compose build --build-arg GITHUB_TOKEN=ghp_xxx
+# suiup honors GITHUB_TOKEN via [env: GITHUB_TOKEN]. Leave empty for anonymous.
+ARG GITHUB_TOKEN=""
+ENV GITHUB_TOKEN=${GITHUB_TOKEN}
 RUN curl -fsSL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.sh | bash \
-    && suiup install sui \
-    && suiup install walrus \
-    && suiup install site-builder
+    && suiup install sui -y \
+    && suiup install walrus -y \
+    && suiup install site-builder -y \
+    && suiup default set sui@testnet \
+    && suiup default set walrus@testnet \
+    && suiup default set site-builder@mainnet \
+    && suiup show \
+    # Fail the build if the defaults didn't land on PATH.
+    && sui --version && walrus --version && site-builder --version
 
 # --- Pre-fetch walrus-sites testnet config (docs/SETUP.md §5) ---
 RUN mkdir -p /home/cortex/.config/walrus \

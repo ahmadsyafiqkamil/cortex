@@ -10,7 +10,12 @@
 
 services:
   cortex-dev:
-    build: .
+    build:
+      context: .
+      args:
+        # Optional: avoids GitHub anonymous API rate limits during suiup install.
+        # Export GITHUB_TOKEN in your shell, or run: docker compose build --build-arg GITHUB_TOKEN=ghp_xxx
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
     image: cortex-dev:latest
     container_name: cortex-dev
     working_dir: /workspace
@@ -22,6 +27,9 @@ services:
       - ./:/workspace
       - sui-config:/home/cortex/.sui
       - walrus-config:/home/cortex/.config/walrus
+    # Entrypoint sets suiup defaults at startup (local op, no network) so the tools
+    # resolve on PATH even if build-time default-setting was skipped/rate-limited.
+    entrypoint: ["/workspace/scripts/dev-entrypoint.sh"]
     command: ["sleep", "infinity"]
 
 volumes:

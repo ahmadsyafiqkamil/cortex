@@ -8,12 +8,17 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ## Hari 1 — Jumat 13 Juni · Environment & validasi
 
-- [ ] **1.1** Setup environment lengkap mengikuti `docs/SETUP.md` (Sui CLI, 2 alamat, faucet, Walrus CLI, site-builder, Python env, Gemini key).
-  - ✅ `sui client active-env` = testnet; `walrus info` sukses; kedua alamat punya SUI.
+- [~] **1.1** Setup environment lengkap mengikuti `docs/SETUP.md` (Sui CLI, 2 alamat, faucet, Walrus CLI, site-builder, Python env, LLM key).
+  - ✅ Tooling via Docker dev container (`docs/DOCKER.md`): sui 1.73.1, walrus 1.50.0, site-builder 2.10.0, node 22, python 3.12 — terverifikasi `--version`.
+  - ⏳ Langkah interaktif menunggu user: `sui client` wizard (testnet) + alamat ke-2, faucet A & B, `walrus get-wal`, isi `.env` (LLM_BASE_URL/KEY/MODEL).
+  - Catatan: LLM provider-agnostic (OpenAI-compatible) — bukan terkunci Gemini.
 - [ ] **1.2** Smoke test Walrus: store file teks `--epochs max`, read kembali, verifikasi identik. Catat blob ID di catatan task.
   - ✅ `diff` input vs hasil read = kosong.
-- [ ] **1.3** Init repo: struktur folder sesuai CLAUDE.md, Move.toml skeleton, typer app kosong (`cortex --help` jalan), .gitignore (`.cortex/`, `dist/`, `__pycache__`).
-  - ✅ Repo publik di GitHub, CI tidak perlu.
+- [~] **1.3** Init repo: struktur folder sesuai CLAUDE.md, Move.toml skeleton, typer app kosong (`cortex --help` jalan), .gitignore (`.cortex/`, `dist/`, `__pycache__`).
+  - ✅ git repo lokal init + commit awal; struktur folder lengkap; `.gitignore` (secrets `.env`/`.cortex/` terverifikasi tidak ter-commit).
+  - ✅ Layer LLM provider-agnostic + `cortex_cli llm-smoke` (typer app minimal).
+  - ⏳ Move.toml skeleton = Hari 2; full typer CLI = Hari 4.
+  - ⏳ GitHub push ditunda (git lokal dulu).
 - [ ] **1.4** Join Telegram Overflow + Walrus TG; kirim 1 paragraf ide ke mentor Abner (validasi + tanya overlap roadmap MemWal).
   - ✅ Pesan terkirim (jawaban tidak menunggu).
 - [ ] **1.5** Pilih & kumpulkan 3 dokumen sumber demo (domain PMI/konsuler) ke `demo-sources/`. Pastikan publik/tidak sensitif.

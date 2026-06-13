@@ -46,6 +46,18 @@ docker compose up -d
 docker compose exec cortex-dev bash      # shell into the container
 ```
 
+> **GitHub rate limit on build:** `suiup` fetches release lists from the GitHub API.
+> The anonymous limit is 60 req/hr per IP, so a clean rebuild can fail with `403`.
+> To avoid it, pass a token (5000 req/hr):
+> ```bash
+> export GITHUB_TOKEN=ghp_xxx        # any GitHub PAT, no scopes needed
+> docker compose build               # compose forwards it as a build arg
+> ```
+> The binaries are then cached in the image. Selecting the default version (so
+> `sui`/`walrus`/`site-builder` resolve on PATH) is a **local** operation done by
+> `scripts/dev-entrypoint.sh` at container start — it needs no network and is
+> unaffected by rate limits.
+
 Verify tooling inside the container:
 
 ```bash
