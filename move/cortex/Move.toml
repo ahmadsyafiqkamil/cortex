@@ -1,0 +1,10 @@
+[package]
+name = "cortex"
+edition = "2024"
+
+# Sui framework is provided implicitly by the installed `sui` toolchain (testnet).
+# No explicit git dependency needed for this edition/version.
+[dependencies]
+
+[addresses]
+cortex = "0x0"

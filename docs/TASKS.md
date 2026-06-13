@@ -26,11 +26,12 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ## Hari 2 — Sabtu 14 Juni · Move skeleton
 
-- [ ] **2.1** Implement `cortex::wiki`: structs, create_wiki, mint_contributor_cap, add_page, update_page, add_link, archive_page, events, error codes (per ARCHITECTURE §2.1).
-  - ✅ `sui move build` bersih.
-- [ ] **2.2** Implement `cortex::source` (register_source, source_exists) per §2.2.
-- [ ] **2.3** Unit tests #1–#4 dari ARCHITECTURE §2.4.
-  - ✅ `sui move test` hijau.
+- [x] **2.1** Implement `cortex::wiki`: structs, create_wiki, mint_contributor_cap, add_page, update_page, add_link, archive_page, events, error codes (per ARCHITECTURE §2.1).
+  - ✅ `sui move build` bersih (sui 1.73.1, edition 2024). Tambahan: view functions (page_count/exists/latest_blob/history_len/deleted) + test-only constructors. `df::exists` (bukan `exists_` yang deprecated).
+- [x] **2.2** Implement `cortex::source` (register_source, source_exists) per §2.2.
+  - ✅ Key dynamic field `src:<blob>`; pakai package helper `wiki::uid_mut/uid/assert_contributor`.
+- [x] **2.3** Unit tests #1–#4 dari ARCHITECTURE §2.4 (+1 test source).
+  - ✅ `sui move test` hijau: 5/5 pass, 0 warning.
 
 ## Hari 3 — Minggu 15 Juni · Deploy + chain wrapper  ⚠️ GATE 1
 
