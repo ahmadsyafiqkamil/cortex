@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+agent/.venv
+agent/.cortex
+site/dist
+**/__pycache__
+*.py[cod]
+.env
+move/cortex/build
+.cortex/cache

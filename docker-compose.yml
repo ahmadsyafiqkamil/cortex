@@ -1,0 +1,29 @@
+# Cortex dev container.
+#
+# State that must survive container rebuilds lives in NAMED VOLUMES:
+#   - sui-config     -> Sui keystore (Agent A & B private keys) — the critical identity
+#   - walrus-config  -> Walrus client + sites config
+# The repo is bind-mounted; agent/.cortex/ persists on the host (and is gitignored).
+#
+# To migrate VPS -> local: copy these named volumes (or re-run `sui client` wizard
+# and restore the keystore), then `docker compose up` with the same image.
+
+services:
+  cortex-dev:
+    build: .
+    image: cortex-dev:latest
+    container_name: cortex-dev
+    working_dir: /workspace
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env
+    volumes:
+      - ./:/workspace
+      - sui-config:/home/cortex/.sui
+      - walrus-config:/home/cortex/.config/walrus
+    command: ["sleep", "infinity"]
+
+volumes:
+  sui-config:
+  walrus-config:

@@ -1,0 +1,26 @@
+# Secrets & local config (CLAUDE.md aturan keras #7 — jangan commit ID/secret)
+agent/.cortex/
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+agent/.venv/
+
+# Node / site build (CLAUDE.md aturan keras #5 — deploy hanya dari site/dist/)
+node_modules/
+site/dist/
+
+# Move build artifacts
+move/cortex/build/
+
+# Walrus blob cache
+.cortex/cache/
+
+# OS / editor
+.DS_Store
+*.swp

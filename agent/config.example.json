@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to agent/.cortex/config.json (gitignored). IDs filled after Task 3.2. LLM key comes from env (.env), NOT from this file.",
+  "network": "testnet",
+  "package_id": "0x...",
+  "wiki_id": "0x...",
+  "agent_a": { "address": "0x...", "contributor_cap": "0x..." },
+  "agent_b": { "address": "0x...", "contributor_cap": "0x..." },
+  "llm": {
+    "base_url": "<from env LLM_BASE_URL>",
+    "model": "<from env LLM_MODEL>"
+  }
+}
