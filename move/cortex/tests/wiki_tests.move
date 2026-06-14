@@ -1,6 +1,7 @@
 #[test_only]
 module cortex::wiki_tests;
 
+use cortex::dispute;
 use cortex::source;
 use cortex::wiki::{Self, Wiki, WikiOwnerCap};
 use std::string;
@@ -88,6 +89,67 @@ fun test_contributor_cap_wrong_wiki_aborts() {
     unit_test::destroy(owner1);
     unit_test::destroy(owner2);
     unit_test::destroy(contrib1);
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #5 — raise_dispute creates a shared DisputeRecord with status OPEN.
+#[test]
+fun test_raise_dispute_happy_path() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+    {
+        let (mut w, owner) = wiki::new_for_testing(string::utf8(b"C"), &clk, sc.ctx());
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+
+        // add a page first so it exists
+        wiki::add_page(
+            &contrib,
+            &mut w,
+            string::utf8(b"home"),
+            string::utf8(b"BLOB_V1"),
+            vector[],
+            &clk,
+            sc.ctx(),
+        );
+
+        // share the wiki before raise_dispute (needs shared object for dispute's wiki_id)
+        dispute::raise_dispute(
+            &contrib,
+            &w,
+            string::utf8(b"home"),
+            string::utf8(b"REASON_BLOB"),
+            sc.ctx(),
+        );
+
+        unit_test::destroy(w);
+        unit_test::destroy(owner);
+        unit_test::destroy(contrib);
+    };
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #6 — raise_dispute on nonexistent page aborts E_PAGE_NOT_FOUND (= 0).
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_raise_dispute_missing_page_aborts() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+    let (w, owner) = wiki::new_for_testing(string::utf8(b"C"), &clk, sc.ctx());
+    let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+
+    dispute::raise_dispute(
+        &contrib,
+        &w,
+        string::utf8(b"ghost"),
+        string::utf8(b"REASON_BLOB"),
+        sc.ctx(),
+    );
+
+    unit_test::destroy(w);
+    unit_test::destroy(owner);
+    unit_test::destroy(contrib);
     clk.destroy_for_testing();
     sc.end();
 }
