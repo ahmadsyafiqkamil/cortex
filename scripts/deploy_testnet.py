@@ -109,6 +109,19 @@ def switch_address(address: str) -> None:
         raise ChainError(f"sui client switch failed:\n{result.stderr[:400]}")
 
 
+def switch_env(env: str = "testnet") -> None:
+    """Ensure the active Sui environment matches the target."""
+    result = subprocess.run(
+        ["sui", "client", "switch", "--env", env],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise ChainError(
+            f"sui client switch --env {env} failed:\n{result.stderr[:400]}\n"
+            f"Check available envs: sui client envs"
+        )
+
+
 # ── Main deploy orchestration ────────────────────────────────────────────────
 
 def deploy(addr_a: str | None, addr_b: str | None, dry_run: bool) -> None:
@@ -142,6 +155,7 @@ def deploy(addr_a: str | None, addr_b: str | None, dry_run: bool) -> None:
 
     # ── Step 2: Verify gas ─────────────────────────────────────────────────
     print(f"\nStep 2/6 — Checking gas on Agent A ({addr_a}) ...")
+    switch_env("testnet")
     switch_address(addr_a)
     balance = client.get_balance()
     print(f"  Balance: {balance} MIST ({balance / 1_000_000_000:.4f} SUI)")
