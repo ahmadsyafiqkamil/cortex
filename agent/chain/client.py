@@ -12,12 +12,16 @@ publish — never hardcoded here.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
 _CONFIG_PATH = Path(__file__).parent.parent / ".cortex" / "config.json"
+
+# Keys owned by ChainConfig — excluded from the `extra` catch-all on load.
+_KNOWN_KEYS = frozenset(
+    {"network", "package_id", "wiki_id", "owner_cap_id", "agent_a", "agent_b", "gemini_model"}
+)
 
 
 class ChainError(RuntimeError):
@@ -25,11 +29,41 @@ class ChainError(RuntimeError):
 
 
 @dataclass
+class AgentIdentity:
+    """Address + ContributorCap object ID for one agent keypair."""
+
+    address: str = ""
+    contributor_cap: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AgentIdentity":
+        return cls(
+            address=data.get("address", ""),
+            contributor_cap=data.get("contributor_cap", ""),
+        )
+
+    def to_dict(self) -> dict:
+        return {"address": self.address, "contributor_cap": self.contributor_cap}
+
+
+@dataclass
 class ChainConfig:
+    """Runtime config loaded from / saved to agent/.cortex/config.json.
+
+    Schema mirrors docs/ARCHITECTURE.md §4.3:
+        network, package_id, wiki_id, owner_cap_id,
+        agent_a {address, contributor_cap},
+        agent_b {address, contributor_cap},
+        gemini_model
+    """
+
     package_id: str = ""
     wiki_id: str = ""
     owner_cap_id: str = ""
     network: str = "testnet"
+    agent_a: AgentIdentity = field(default_factory=AgentIdentity)
+    agent_b: AgentIdentity = field(default_factory=AgentIdentity)
+    gemini_model: str = ""
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -45,16 +79,22 @@ class ChainConfig:
             wiki_id=data.get("wiki_id", ""),
             owner_cap_id=data.get("owner_cap_id", ""),
             network=data.get("network", "testnet"),
-            extra={k: v for k, v in data.items() if k not in ("package_id", "wiki_id", "owner_cap_id", "network")},
+            agent_a=AgentIdentity.from_dict(data.get("agent_a") or {}),
+            agent_b=AgentIdentity.from_dict(data.get("agent_b") or {}),
+            gemini_model=data.get("gemini_model", ""),
+            extra={k: v for k, v in data.items() if k not in _KNOWN_KEYS},
         )
 
     def save(self, path: Path = _CONFIG_PATH) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         data: dict = {
+            "network": self.network,
             "package_id": self.package_id,
             "wiki_id": self.wiki_id,
             "owner_cap_id": self.owner_cap_id,
-            "network": self.network,
+            "agent_a": self.agent_a.to_dict(),
+            "agent_b": self.agent_b.to_dict(),
+            "gemini_model": self.gemini_model,
             **self.extra,
         }
         path.write_text(json.dumps(data, indent=2))

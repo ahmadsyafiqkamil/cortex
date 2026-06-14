@@ -1,3 +1,3 @@
-from .client import ChainClient, ChainConfig, ChainError
+from .client import AgentIdentity, ChainClient, ChainConfig, ChainError
 
-__all__ = ["ChainClient", "ChainConfig", "ChainError"]
+__all__ = ["AgentIdentity", "ChainClient", "ChainConfig", "ChainError"]
