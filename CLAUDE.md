@@ -15,6 +15,7 @@ Cortex menjamin **verifiable provenance**, BUKAN "verifiable truth/knowledge". J
 - `docs/ARCHITECTURE.md` — desain teknis lengkap (Move schema, format halaman, kontrak antar-komponen). **Baca sebelum menulis kode Move atau agent.**
 - `docs/TASKS.md` — breakdown task per hari + acceptance criteria
 - `docs/SETUP.md` — setup environment dari nol
+- `docs/SUI_CLI.md` — quick reference perintah `sui client` (alamat, faucet, publish, call, object)
 - `docs/DEMO_SCRIPT.md` — skrip demo 5 menit + acceptance test end-to-end
 - `docs/reference/` — handbook hackathon & research brief (read-only, konteks)
 
