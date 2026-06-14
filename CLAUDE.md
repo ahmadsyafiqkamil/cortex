@@ -42,9 +42,9 @@ cortex/
 ## Perintah penting
 
 ```bash
-# Move
-cd move/cortex && sui move build
-cd move/cortex && sui move test
+# Move (sui >= 1.73 wajib --build-env <testnet|mainnet>)
+cd move/cortex && sui move build --build-env testnet
+cd move/cortex && sui move test --build-env testnet
 sui client publish --gas-budget 100000000        # deploy ke testnet
 
 # Walrus
