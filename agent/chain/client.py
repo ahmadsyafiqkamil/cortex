@@ -163,10 +163,22 @@ class ChainClient:
         return data
 
     def get_balance(self, coin_type: str = "0x2::sui::SUI") -> int:
-        """Return total balance in MIST for the active address."""
+        """Return total balance in MIST for the active address.
+
+        sui client balance --json returns a nested structure:
+          [ [ [metadata_dict, [coin_obj, ...]] ], false ]
+        We sum the `balance` field of every coin object found.
+        """
         data = self._sui(["balance", "--coin-type", coin_type])
-        if isinstance(data, list) and data:
-            return int(data[0].get("totalBalance", 0))
+        # Walk the nesting defensively; any non-list short-circuits to 0.
+        try:
+            # data[0] -> list of coin-type groups; data[0][0] -> first group
+            # data[0][0][1] -> list of individual coin objects
+            coin_objs = data[0][0][1]
+            if isinstance(coin_objs, list):
+                return sum(int(c.get("balance", 0)) for c in coin_objs if isinstance(c, dict))
+        except (IndexError, TypeError, KeyError):
+            pass
         return 0
 
     def publish(self, move_dir: str | Path, gas_budget: int = 100_000_000) -> dict:
