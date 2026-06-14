@@ -37,9 +37,12 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 - [x] **3.1** Implement `cortex::dispute` + tests #5–#6.
   - ✅ dispute.move: DisputeRecord (shared object), raise_dispute, resolve_dispute, events DisputeRaised/DisputeResolved. 7/7 tests pass (tambah test #5 happy path + test #6 abort missing page).
-- [ ] **3.2** Publish package ke testnet; create_wiki; mint ContributorCap untuk alamat A & B. Tulis semua ID ke `agent/.cortex/config.json` DAN ke bagian "State proyek" di CLAUDE.md.
-  - ⏳ Menunggu faucet — wallet `0x7037...59ba` masih 0 SUI. Jalankan: `! docker exec cortex-dev bash -c "sui client faucet --url https://faucet.testnet.sui.io/gas"`
-  - ✅ Object Wiki terlihat di explorer (setelah deploy).
+- [x] **3.2** Publish package ke testnet; create_wiki; mint ContributorCap untuk alamat A & B. Tulis semua ID ke `agent/.cortex/config.json` DAN ke bagian "State proyek" di CLAUDE.md.
+  - ✅ Deploy via `scripts/deploy_testnet.py` — 2026-06-15.
+  - ✅ package_id: `0x823f71d5795240a23e6ae2e7ca195faf93b3a55782f7b3a143f40babc8bf3b7e`
+  - ✅ wiki_id: `0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755`
+  - ✅ ContributorCap A + B ter-mint, config.json terisi penuh.
+  - ✅ Wiki terlihat di explorer: https://suiscan.xyz/testnet/object/0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755
 - [x] **3.3** `agent/chain/`: ChainClient wrapper — subprocess `sui client --json` dengan get_active_address, get_object, get_balance, publish, call_move.
   - ✅ Import sukses; `get_active_address()` return `0x7037...59ba` dari testnet. Pakai subprocess approach (cukup untuk scope ini).
 - **GATE 1:** Jika 3.1–3.3 belum selesai hari ini → besok pagi pangkas: Dispute jadi event-only (tanpa shared object), lanjut.

@@ -84,9 +84,14 @@ bash scripts/demo_e2e.sh
 
 ## State proyek saat ini
 
-- [ ] Environment setup (lihat docs/SETUP.md)
-- [ ] Move package deployed ke testnet — Package ID: (belum)
-- [ ] Wiki object dibuat — Object ID: (belum)
+- [x] Environment setup — sui 1.73.0, walrus 1.50.0, site-builder 2.10.0, Python 3.14 venv
+- [x] Move package deployed ke testnet — Package ID: `0x823f71d5795240a23e6ae2e7ca195faf93b3a55782f7b3a143f40babc8bf3b7e`
+- [x] Wiki object dibuat — Object ID: `0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755`
+- [x] Agent A: `0x6034727b72070c008e8d947d0289915e92fa77630b39d4d7d6fc61fadf0e3e89` — ContributorCap: `0x092b801b4e344f9b8e94bb5a9eb85fd2e35ef8f5224cbdb9aeba338a1307668d`
+- [x] Agent B: `0x50126de47be4156ab355685b76eb2fabe94908ea4350fd192727c3c710eeb86a` — ContributorCap: `0x8a4524d942e51a9fe184a4a7ebd86bec6f09d0010b2fb81329d8d93316380c9f`
 - [ ] Site live — URL: (belum)
+
+WikiOwnerCap (Agent A): `0x8d3bb8f4566f1040303385524cb8d8dbe26fc1ab179e4f5dc36c1103fb031d6b`
+Explorer: https://suiscan.xyz/testnet/object/0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755
 
 (Update bagian ini setiap kali milestone tercapai agar sesi berikutnya tahu posisi.)
