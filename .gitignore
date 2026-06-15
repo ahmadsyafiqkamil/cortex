@@ -14,6 +14,8 @@ agent/.venv/
 # Node / site build (CLAUDE.md aturan keras #5 — deploy hanya dari site/dist/)
 node_modules/
 site/dist/
+site/node_modules/
+site/src/app/data/cortex-data.json
 
 # Move build artifacts
 move/cortex/build/

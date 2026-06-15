@@ -1,0 +1,15 @@
+{
+  "name": "cortex-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cortex Walrus Site — wiki viewer with graph, provenance, and dispute badges",
+  "scripts": {
+    "build": "npx @11ty/eleventy",
+    "serve": "npx @11ty/eleventy --serve"
+  },
+  "dependencies": {
+    "@11ty/eleventy": "^3.1.0",
+    "diff": "^8.0.2",
+    "marked": "^16.0.0"
+  }
+}

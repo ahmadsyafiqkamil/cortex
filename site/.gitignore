@@ -1,1 +1,4 @@
 dist/
+node_modules/
+_legacy-eleventy/node_modules_old/
+src/app/data/cortex-data.json
