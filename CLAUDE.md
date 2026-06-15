@@ -18,6 +18,7 @@ Cortex menjamin **verifiable provenance**, BUKAN "verifiable truth/knowledge". J
 - `docs/SUI_CLI.md` — quick reference perintah `sui client` (alamat, faucet, publish, call, object)
 - `docs/DEMO_SCRIPT.md` — skrip demo 5 menit + acceptance test end-to-end
 - `docs/reference/` — handbook hackathon & research brief (read-only, konteks)
+- `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md` — spec fitur F11: wallet sign-in + provenance attestation (non-ekonomi). **Baca sebelum mengerjakan `cortex::attest` atau wallet di site.**
 
 ## Struktur repo
 

@@ -115,6 +115,21 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ---
 
+## Fitur Tambahan — Wallet + Provenance Attestation (F11)
+
+> Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md`. Non-ekonomi (lihat catatan P2). Risiko utama: migrasi package (pakai `sui client upgrade`).
+
+- [ ] **F11.1** Cari & catat `UpgradeCap` (owner Agent A) ke `agent/.cortex/config.json`; konfirmasi jalur `sui client upgrade` sebelum republish.
+- [ ] **F11.2** Modul `cortex::attest` — `ProvenanceAttestation` object + `ProvenanceAttested` event + `attest_provenance` (tanpa `ContributorCap`, assert `page_exists`, transfer ke sender). Tambah views.
+- [ ] **F11.3** Move tests: attest sukses (+event) & abort di halaman tidak ada. Jaga semua test package hijau.
+- [ ] **F11.4** `sui client upgrade`; update Package ID di `agent/.cortex/config.json` + `site/src/_data/config.js`; update State di `CLAUDE.md`.
+- [ ] **F11.5** CLI `cortex attest <slug> [--agent a|b]` — resolve `page_blob` via `get_page_record`, call `attest_provenance`, print object id + digest. Test dengan `call_move` di-mock.
+- [ ] **F11.6** Site: bundle `@mysten/dapp-kit` + React island (lazy-load), Verify panel di `page.njk` (connect wallet, sumber + status lint, tombol attest, digest + link Suiscan). Copy: "Provenans terverifikasi", bukan "terbukti benar".
+- [ ] **F11.7** Site: hitungan attestation per halaman dari event `ProvenanceAttested` (query RPC + fallback snapshot build-time).
+- [ ] **F11.8** Tambah langkah attest ke `scripts/demo_e2e.sh`. Playwright smoke: panel render + bundle lazy load saat klik.
+
+---
+
 ## Pasca-submission (sebelum Demo Day 20–21 Juli)
 
 - [ ] **P.1** H-3 shortlist (5 Juli): cek semua blob masih hidup, site masih render, jalankan e2e.

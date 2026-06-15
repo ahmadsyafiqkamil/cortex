@@ -103,12 +103,13 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 | F8 | **Time travel** | `cortex snapshot <timestamp>` merekonstruksi wiki dari chain of blob IDs; UI diff antar dua snapshot |
 | F9 | **Demo dua agent** | Agent A (ingest, identitas/keypair 1) dan Agent B (lint + dispute, keypair 2) bekerja pada wiki yang sama tanpa server bersama — koordinasi murni via Sui |
 | F10 | **Lint agent** | `cortex lint`: deteksi broken `[[wikilink]]` (target blob tidak terdaftar), orphan pages (tanpa inbound link dari event index), dan klaim tanpa sumber |
+| F11 | **Wallet sign-in + provenance attestation** | Connect wallet Sui di browser (Walrus Site). Verifier (wallet apa pun) men-*attest* on-chain bahwa klaim halaman terlacak ke raw source terdaftar — `cortex::attest`. Attestation = objek non-ekonomi yang dimiliki verifier + hitungan publik dari event. **Bukan** klaim kebenaran, **bukan** token/reputasi. Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md` |
 
 ### P2 — Dicoret dari scope hackathon (eksplisit)
 
 - ❌ Plugin Obsidian/VSCode
 - ❌ Enkripsi Seal / private pages
-- ❌ Sistem reputasi, voting DAO, tokenomics
+- ❌ Sistem reputasi, voting DAO, tokenomics — *catatan: provenance attestation (F11) diizinkan karena non-ekonomi (objek attestation tidak bernilai/transferable-as-value, tidak ada skor reputasi/token)*
 - ❌ Full graph object on-chain (diganti events)
 - ❌ Cross-wiki linking antar owner berbeda
 - ❌ Resolusi sengketa otomatis (sengketa hanya *direkam*, tidak di-settle)
