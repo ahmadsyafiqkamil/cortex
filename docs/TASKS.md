@@ -49,20 +49,24 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ## Hari 4 — Senin 16 Juni · Ingest agent
 
-- [ ] **4.1** `agent/walrus/` wrapper (store/read + cache) — uji dengan demo source #1.
-- [ ] **4.2** Prompt `extract.md` + parsing JSON defensif; uji terhadap 3 demo sources.
-  - ✅ Tiap source menghasilkan ≥2 kandidat halaman dengan klaim ber-quote.
-- [ ] **4.3** Prompt `write_page.md` + injeksi blob ID programatik (placeholder `{{SRC}}`).
-  - ✅ Output lolos validasi format (frontmatter, marker, wikilink slug kanonis).
-- [ ] **4.4** Rangkai `cortex ingest`: alur [1]–[7] di ARCHITECTURE §1, termasuk `_index` & `_log`.
-  - ✅ Ingest source #1 end-to-end: blob + on-chain + index ter-update.
+- [x] **4.1** `agent/walrus/` wrapper (store/read + cache) — uji dengan demo source #1.
+  - ✅ `WalrusClient` store/read + cache SHA-256; semua store pakai `--epochs max`.
+- [x] **4.2** Prompt `extract.md` + parsing JSON defensif; uji terhadap 3 demo sources.
+  - ✅ source1: 5 halaman; source2: 5 halaman; source3: 9 halaman — semua ≥2 dengan klaim ber-quote.
+- [x] **4.3** Prompt `write_page.md` + injeksi blob ID programatik (placeholder `{{SRC}}`).
+  - ✅ Output lolos validasi format (frontmatter, marker `^[blob:...]`, wikilink slug kanonis).
+- [x] **4.4** Rangkai `cortex ingest`: alur [1]–[7] di ARCHITECTURE §1, termasuk `_index` & `_log`.
+  - ✅ 3 demo sources ingest end-to-end (2026-06-15). Fix: `--args=<val>` untuk blob ID hyphen; idempotent add→update pada step 5/7; skip duplicate register_source.
+  - ✅ Provenance terverifikasi: `walrus read` halaman menunjuk raw blob (bukan `{{SRC}}`).
 
 ## Hari 5 — Selasa 17 Juni · Query agent + provenance
 
-- [ ] **5.1** `cortex query`: index → pilih halaman → baca blob → `answer.md` → jawaban + sitasi.
-  - ✅ 3 pertanyaan uji terjawab, semua sitasi blob valid (di-resolve balik sukses).
-- [ ] **5.2** Ingest source #2 & #3 → minimal 5 halaman, ≥10 wikilink antar halaman.
-- [ ] **5.3** `cortex trace <slug> <claim>`: tampilkan rantai klaim → halaman blob → raw blob → cuplikan sumber (basis demo provenance).
+- [x] **5.1** `cortex query`: index → pilih halaman → baca blob → `answer.md` → jawaban + sitasi.
+  - ✅ Implementasi 2026-06-15: keyword scoring Python (top-4), `answer.md` prompt, sitasi diinjeksi kode (bukan LLM). 3 pertanyaan uji terjawab, sitasi blob valid.
+- [x] **5.2** Ingest source #2 & #3 → minimal 5 halaman, ≥10 wikilink antar halaman.
+  - ✅ 26 content pages on-chain, 81 total wikilinks (Hari 4 selesai).
+- [x] **5.3** `cortex trace <slug> <claim>`: tampilkan rantai klaim → halaman blob → raw blob → cuplikan sumber (basis demo provenance).
+  - ✅ Implementasi 2026-06-15: rantai klaim→halaman→raw source→excerpt lengkap. Filter claim substring, endpoint selalu raw source blob.
 
 ## Hari 6 — Rabu 18 Juni · Lint + Dispute + dua agent  ⚠️ GATE 2
 
