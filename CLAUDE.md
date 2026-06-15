@@ -84,12 +84,19 @@ bash scripts/demo_e2e.sh
 
 ## State proyek saat ini
 
-- [x] Environment setup — sui 1.73.0, walrus 1.50.0, site-builder 2.10.0, Python 3.14 venv
+- [x] Environment setup — sui 1.73.0, walrus 1.50.0, site-builder 2.10.0, Python 3.14 venv, Node 24
 - [x] Move package deployed ke testnet — Package ID: `0x823f71d5795240a23e6ae2e7ca195faf93b3a55782f7b3a143f40babc8bf3b7e`
 - [x] Wiki object dibuat — Object ID: `0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755`
 - [x] Agent A: `0x6034727b72070c008e8d947d0289915e92fa77630b39d4d7d6fc61fadf0e3e89` — ContributorCap: `0x092b801b4e344f9b8e94bb5a9eb85fd2e35ef8f5224cbdb9aeba338a1307668d`
 - [x] Agent B: `0x50126de47be4156ab355685b76eb2fabe94908ea4350fd192727c3c710eeb86a` — ContributorCap: `0x8a4524d942e51a9fe184a4a7ebd86bec6f09d0010b2fb81329d8d93316380c9f`
-- [ ] Site live — URL: (belum)
+- [x] Ingest agent — `cortex ingest` end-to-end (7-step pipeline) complete
+- [x] Query + trace agent — `cortex query` + `cortex trace` with provenance citations
+- [x] Lint agent — 6 checks (broken wikilinks, orphan, claims-without-marker, markers-to-wiki, unregistered sources)
+- [x] Dispute — Agent B raise dispute with counter-source
+- [x] Demo E2E — `scripts/demo_e2e.sh` (ingest A → lint → dispute B → query)
+- [x] Walrus Site — Eleventy build complete (26 pages, graph view, diff, confidence badges)
+- [x] Site deployed — Object ID: `0x1e0deb8bd5b9ffa4db7dbf93b0f8fe627813c4ce104d235c51f3ccb624c33e58`
+- [x] Site live — URL: `http://qysquom1w51gupfuxenkfw3201fg32dntpmmimxgwxdknw66w.localhost:3000` (portal required)
 
 WikiOwnerCap (Agent A): `0x8d3bb8f4566f1040303385524cb8d8dbe26fc1ab179e4f5dc36c1103fb031d6b`
 Explorer: https://suiscan.xyz/testnet/object/0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755

@@ -33,6 +33,7 @@ except ImportError:
 try:
     from chain import ChainClient, ChainError
     from cortex_cli.pageformat import (
+        body_without_frontmatter,
         extract_markers,
         extract_wikilinks,
         keyword_score,
@@ -45,6 +46,7 @@ try:
 except ImportError:
     from agent.chain import ChainClient, ChainError  # type: ignore
     from agent.cortex_cli.pageformat import (  # type: ignore
+        body_without_frontmatter,
         extract_markers,
         extract_wikilinks,
         keyword_score,
@@ -268,6 +270,7 @@ def ingest(
 # ── query ─────────────────────────────────────────────────────────────────────
 
 _SYSTEM_SLUGS = frozenset({"_index", "_log"})
+_CLAIM_RE = re.compile(r"\^\[blob:[A-Za-z0-9_\-]+\]")
 
 
 @app.command("query")
@@ -484,6 +487,393 @@ def trace(
                 rprint(f"  [yellow]Could not fetch raw blob:[/yellow] {exc}")
 
         rprint()
+
+
+# ── lint ──────────────────────────────────────────────────────────────────────
+
+@app.command("lint")
+def lint(
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format: text (markdown report) or json."
+    ),
+) -> None:
+    """Run quality checks on the wiki content.
+
+    Detects: broken [[wikilinks]], orphan pages (no inbound links),
+    claims without ^[blob:...] provenance markers, markers that point to
+    wiki page blobs (anti-feedback-loop), and unregistered source blob IDs.
+
+    Outputs a structured markdown report (or JSON).
+    """
+    walrus = WalrusClient()
+    chain = ChainClient()
+
+    console.rule("[bold cyan]Cortex Lint[/bold cyan]")
+
+    # ── Enumerate pages ──────────────────────────────────────────────────────
+    rprint("[dim]Fetching page list from chain…[/dim]")
+    try:
+        all_slugs = chain.list_pages()
+    except ChainError as exc:
+        rprint(f"[red]Chain error (list_pages):[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    content_slugs = [s for s in all_slugs if s not in _SYSTEM_SLUGS]
+    if not content_slugs:
+        rprint("[yellow]No content pages found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    rprint(f"[dim]{len(content_slugs)} content page(s) found.[/dim]")
+
+    # ── Enumerate sources ────────────────────────────────────────────────────
+    rprint("[dim]Fetching source registry from chain…[/dim]")
+    registered_sources: set[str] = set()
+    try:
+        for src in chain.list_sources():
+            registered_sources.add(src.get("blob", ""))
+    except ChainError as exc:
+        rprint(f"[yellow]Warning: could not fetch sources:[/yellow] {exc}")
+    registered_sources.discard("")
+
+    # ── Collect page blob IDs (for anti-feedback-loop check) ─────────────────
+    page_blob_ids: set[str] = set()
+    try:
+        page_blob_ids = chain.get_all_page_blob_ids()
+    except ChainError as exc:
+        rprint(f"[yellow]Warning: could not fetch page blob IDs:[/yellow] {exc}")
+
+    # ── Read all page content ────────────────────────────────────────────────
+    rprint("[dim]Reading page content from Walrus…[/dim]")
+    page_data: dict[str, dict] = {}  # slug -> {md, fm, wikilinks, markers, claims}
+    for slug in content_slugs:
+        record = chain.get_page_record(slug)
+        if not record or record.get("deleted"):
+            continue
+        blob_id = record.get("latest_blob", "")
+        if not blob_id:
+            continue
+        try:
+            md = walrus.read(blob_id).decode("utf-8", errors="replace")
+        except WalrusError:
+            continue
+        fm = parse_frontmatter(md)
+        page_data[slug] = {
+            "md": md,
+            "fm": fm,
+            "wikilinks": extract_wikilinks(md),
+            "markers": extract_markers(md),
+            "claims": split_claims(md),
+        }
+
+    if not page_data:
+        rprint("[yellow]Could not read any page content.[/yellow]")
+        raise typer.Exit(code=0)
+
+    # ── Run checks ───────────────────────────────────────────────────────────
+
+    # Build the set of known slugs for wikilink validation.
+    known_slugs = set(all_slugs)  # includes _index, _log
+
+    # Build inbound link map: slug -> set of slugs that link to it.
+    inbound: dict[str, set[str]] = {}
+    for slug, data in page_data.items():
+        for target in data["wikilinks"]:
+            inbound.setdefault(target, set()).add(slug)
+
+    broken_wikilinks: list[tuple[str, str]] = []  # (from_slug, target)
+    orphan_pages: list[str] = []
+    claims_without_markers: list[tuple[str, str]] = []  # (slug, claim_text)
+    markers_to_wiki: list[tuple[str, str, str]] = []  # (slug, blob_id, page_title)
+    unregistered_fm_sources: list[tuple[str, str]] = []  # (slug, blob_id)
+
+    for slug, data in page_data.items():
+        # --- Broken wikilinks ---
+        for target in data["wikilinks"]:
+            if target not in known_slugs:
+                broken_wikilinks.append((slug, target))
+
+        # --- Claims without markers ---
+        body = body_without_frontmatter(data["md"])
+        for line in body.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if not _CLAIM_RE.search(line) and len(line) > 20:
+                claims_without_markers.append((slug, line[:120]))
+
+        # --- Markers pointing to wiki pages ---
+        for blob_id in data["markers"]:
+            if blob_id in page_blob_ids:
+                fm = data.get("fm", {})
+                title = fm.get("title", slug)
+                markers_to_wiki.append((slug, blob_id, title))
+
+        # --- Unregistered sources in frontmatter ---
+        fm_sources = data.get("fm", {}).get("sources", []) or []
+        for src in fm_sources:
+            if isinstance(src, dict):
+                src_blob = src.get("blob", "")
+                if src_blob and src_blob not in registered_sources:
+                    unregistered_fm_sources.append((slug, src_blob))
+
+    # --- Orphan pages ---
+    for slug in content_slugs:
+        if slug not in inbound or not inbound[slug]:
+            orphan_pages.append(slug)
+
+    # ── Render report ────────────────────────────────────────────────────────
+    total_pages = len(page_data)
+    total_wikilinks = sum(len(p["wikilinks"]) for p in page_data.values())
+    total_markers = sum(len(p["markers"]) for p in page_data.values())
+
+    if output_format == "json":
+        report = {
+            "summary": {
+                "total_pages": total_pages,
+                "total_wikilinks": total_wikilinks,
+                "total_markers": total_markers,
+                "broken_wikilinks": len(broken_wikilinks),
+                "orphan_pages": len(orphan_pages),
+                "claims_without_markers": len(claims_without_markers),
+                "markers_to_wiki_pages": len(markers_to_wiki),
+                "unregistered_sources": len(unregistered_fm_sources),
+            },
+            "errors": {
+                "broken_wikilinks": [
+                    {"from": f, "target": t} for f, t in broken_wikilinks
+                ],
+                "markers_to_wiki_pages": [
+                    {"page": s, "blob_id": b, "title": t}
+                    for s, b, t in markers_to_wiki
+                ],
+                "unregistered_sources": [
+                    {"page": s, "blob_id": b} for s, b in unregistered_fm_sources
+                ],
+            },
+            "warnings": {
+                "orphan_pages": orphan_pages,
+                "claims_without_markers": [
+                    {"page": s, "text": c} for s, c in claims_without_markers
+                ],
+            },
+        }
+        rprint(json.dumps(report, indent=2))
+        raise typer.Exit(code=0)
+
+    lines: list[str] = []
+    lines.append("# Cortex Lint Report")
+    lines.append("")
+    lines.append(
+        f"Generated {datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}"
+    )
+    lines.append("")
+    lines.append("## Summary")
+    lines.append("")
+    lines.append(f"| Metric | Count |")
+    lines.append(f"| --- | --- |")
+    lines.append(f"| Total pages | {total_pages} |")
+    lines.append(f"| Total wikilinks | {total_wikilinks} |")
+    lines.append(f"| Total provenance markers | {total_markers} |")
+    lines.append(
+        f"| Broken wikilinks :small_red_triangle: | {len(broken_wikilinks)} |"
+    )
+    lines.append(
+        f"| Orphan pages :warning: | {len(orphan_pages)} |"
+    )
+    lines.append(
+        f"| Claims without markers :warning: | {len(claims_without_markers)} |"
+    )
+    lines.append(
+        f"| Markers to wiki pages (ERROR) :x: | {len(markers_to_wiki)} |"
+    )
+    lines.append(
+        f"| Unregistered sources (ERROR) :x: | {len(unregistered_fm_sources)} |"
+    )
+    lines.append("")
+
+    # --- Errors section ---
+    has_errors = broken_wikilinks or markers_to_wiki or unregistered_fm_sources
+    if has_errors:
+        lines.append("## Errors")
+        lines.append("")
+
+    if broken_wikilinks:
+        lines.append("### Broken wikilinks")
+        lines.append("")
+        for from_slug, target in sorted(broken_wikilinks):
+            lines.append(f"- `[[{from_slug}]]` links to `[[{target}]]` — page not found")
+        lines.append("")
+
+    if markers_to_wiki:
+        lines.append("### Provenance markers pointing to wiki pages (anti-feedback-loop)")
+        lines.append("")
+        lines.append(
+            "Markers MUST point to raw source blobs, never to other wiki page blobs. "
+            "This is a defence against agent feedback loops."
+        )
+        lines.append("")
+        for slug, blob_id, title in sorted(markers_to_wiki):
+            lines.append(
+                f"- `[[{slug}]]` ({title}): marker `^[blob:{blob_id}]` "
+                f"points to a wiki page blob"
+            )
+        lines.append("")
+
+    if unregistered_fm_sources:
+        lines.append("### Unregistered sources in frontmatter")
+        lines.append("")
+        for slug, blob_id in sorted(unregistered_fm_sources):
+            lines.append(
+                f"- `[[{slug}]]`: `{blob_id}` is not registered via `source::register_source`"
+            )
+        lines.append("")
+
+    # --- Warnings section ---
+    has_warnings = orphan_pages or claims_without_markers
+    if has_warnings:
+        lines.append("## Warnings")
+        lines.append("")
+
+    if orphan_pages:
+        lines.append("### Orphan pages (no inbound wikilinks)")
+        lines.append("")
+        for slug in sorted(orphan_pages):
+            lines.append(f"- `[[{slug}]]`")
+        lines.append("")
+
+    if claims_without_markers:
+        lines.append("### Claims without provenance markers")
+        lines.append("")
+        lines.append(
+            "These lines appear to contain factual statements but have no "
+            "`^[blob:...]` marker linking them to a raw source."
+        )
+        lines.append("")
+        shown = 0
+        for slug, text in sorted(claims_without_markers):
+            if shown >= 20:
+                lines.append(f"... and {len(claims_without_markers) - 20} more")
+                break
+            lines.append(f"- `[[{slug}]]`: _{text}_")
+            shown += 1
+        lines.append("")
+
+    report = "\n".join(lines)
+    console.print(report, markup=False)
+
+    # ── Exit with non-zero if there are errors ───────────────────────────────
+    if broken_wikilinks or markers_to_wiki or unregistered_fm_sources:
+        rprint(
+            f"\n[bold red]{len(broken_wikilinks) + len(markers_to_wiki) + len(unregistered_fm_sources)} error(s) found.[/bold red]"
+        )
+        raise typer.Exit(code=1)
+
+    rprint("\n[bold green]:heavy_check_mark: No errors found.[/bold green]")
+
+
+# ── dispute raise ──────────────────────────────────────────────────────────────
+
+@app.command("dispute")
+def dispute(
+    page: str = typer.Option(
+        ..., "--page", "-p", help="Slug of the disputed wiki page."
+    ),
+    counter_source: Path = typer.Option(
+        ..., "--counter-source", "-c", help="Path to a text file containing the counter-source."
+    ),
+    title: str = typer.Option(
+        "", "--title", "-t", help="Human-readable title for the counter-source."
+    ),
+    rationale: str = typer.Option(
+        "", "--rationale", "-r", help="Text explaining why the claim is disputed."
+    ),
+) -> None:
+    """Raise a dispute against a wiki page (Agent B keypair).
+
+    Stores the counter-source on Walrus, registers it on-chain, optionally
+    stores the rationale as a blob, then calls dispute::raise_dispute.
+
+    The dispute is recorded as a shared DisputeRecord on Sui — it never
+    modifies the page, only records the disagreement transparently.
+    """
+    counter_source = counter_source.resolve()
+    if not counter_source.exists():
+        rprint(f"[red]Counter-source file not found:[/red] {counter_source}")
+        raise typer.Exit(code=1)
+
+    if not title:
+        title = counter_source.stem.replace("_", " ").replace("-", " ").title()
+
+    walrus = WalrusClient()
+    chain = ChainClient()
+
+    console.rule("[bold cyan]Cortex Dispute[/bold cyan]")
+    rprint(f"[bold]Page:[/bold]            {page}")
+    rprint(f"[bold]Counter-source:[/bold] {counter_source}")
+    rprint(f"[bold]Using:[/bold]           Agent B ({chain.config.agent_b.address})")
+
+    # ── Verify page exists ───────────────────────────────────────────────────
+    try:
+        record = chain.get_page_record(page)
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if not record:
+        rprint(f"[red]Page '[cyan]{page}[/cyan]' not found on-chain.[/red]")
+        raise typer.Exit(code=1)
+
+    rprint(f"  [green]:heavy_check_mark:[/green] page '{page}' exists on-chain")
+
+    # ── Step 1: Store counter-source on Walrus ───────────────────────────────
+    rprint("\n[bold cyan]Step 1/3[/bold cyan] Storing counter-source on Walrus…")
+    try:
+        counter_blob = walrus.store(counter_source)
+    except WalrusError as exc:
+        rprint(f"[red]Walrus error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    rprint(f"  [green]:heavy_check_mark:[/green] counter_source_blob = {counter_blob}")
+
+    # ── Step 2: Register counter-source on-chain (Agent B) ───────────────────
+    rprint("\n[bold cyan]Step 2/3[/bold cyan] Registering counter-source on-chain (Agent B)…")
+    try:
+        chain.register_source(blob=counter_blob, title=title, origin_url=str(counter_source), agent="b")
+        rprint(f"  [green]:heavy_check_mark:[/green] source registered: {counter_blob}")
+    except ChainError as exc:
+        err = str(exc)
+        if "dynamic_field::add" in err:
+            rprint(f"  [yellow]source already registered — continuing[/yellow] ({counter_blob})")
+        else:
+            rprint(f"[red]Chain error (register_source):[/red] {exc}")
+            raise typer.Exit(code=1)
+
+    # ── Step 3: Store rationale + raise dispute ──────────────────────────────
+    rprint("\n[bold cyan]Step 3/3[/bold cyan] Raising dispute on-chain (Agent B)…")
+    rationale_blob = ""
+    if rationale.strip():
+        try:
+            rationale_blob = walrus.store_text(rationale, name=f"dispute-{page}")
+            rprint(f"  [dim]rationale blob: {rationale_blob}[/dim]")
+        except WalrusError as exc:
+            rprint(f"[yellow]Warning: could not store rationale blob:[/yellow] {exc}")
+
+    try:
+        result = chain.raise_dispute(
+            page=page,
+            reason_blob=rationale_blob,
+            agent="b",
+        )
+        rprint(f"  [green]:heavy_check_mark:[/green] dispute raised against '[[{page}]]'")
+    except ChainError as exc:
+        rprint(f"[red]Chain error (raise_dispute):[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold green]Dispute complete[/bold green]")
+    rprint(f"[bold green]:heavy_check_mark:[/bold green] Dispute filed by Agent B")
+    rprint(f"  Page:           [[{page}]]")
+    rprint(f"  Counter-source: {counter_blob}")
+    if rationale_blob:
+        rprint(f"  Rationale:      {rationale_blob}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

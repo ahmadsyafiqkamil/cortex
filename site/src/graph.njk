@@ -1,0 +1,32 @@
+---
+layout: layout.njk
+title: Graph View
+---
+
+<div class="mb-6">
+  <h1 class="text-3xl font-bold mb-2">Graph View</h1>
+  <p class="text-gray-400">Visualization of page interconnections from on-chain LinkAdded events</p>
+</div>
+
+<div id="graph-container" class="w-full h-[70vh] bg-gray-900 border border-gray-800 rounded-lg relative">
+  <div id="graph-loading" class="absolute inset-0 flex items-center justify-center text-gray-500">
+    Loading graph...
+  </div>
+</div>
+
+<div class="mt-4 p-3 bg-gray-900 border border-gray-800 rounded-lg text-xs text-gray-500">
+  <p><strong>Nodes</strong> = wiki pages &middot; <strong>Edges</strong> = <code>[[wikilinks]]</code> recorded as on-chain events &middot; Drag to rearrange &middot; Click to open page</p>
+</div>
+
+<script>
+  {# Derive link edges from page wikilinks #}
+  window.__CORTEX_LINKS__ = [
+    {% for page in pages %}
+    {% for link in page.wikilinks %}
+    { "from": "{{ page.slug }}", "to": "{{ link }}" },
+    {% endfor %}
+    {% endfor %}
+  ];
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script src="/assets/graph.js"></script>

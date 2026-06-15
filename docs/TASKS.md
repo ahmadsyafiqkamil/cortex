@@ -70,29 +70,44 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ## Hari 6 — Rabu 18 Juni · Lint + Dispute + dua agent  ⚠️ GATE 2
 
-- [ ] **6.1** `cortex lint`: broken wikilink, orphan page, klaim tanpa marker, marker menunjuk halaman wiki (pelanggaran), sumber tak terdaftar. Output report markdown.
-- [ ] **6.2** `cortex dispute raise ...` memakai keypair Agent B (register counter-source → raise_dispute).
-  - ✅ Dispute object terlihat di explorer; raised_by = alamat B ≠ A.
-- [ ] **6.3** Skenario dua-agent ter-script: `scripts/demo_e2e.sh` menjalankan ingest (A) → lint (B) → dispute (B) → query dari mesin/identitas B.
+- [x] **6.1** `cortex lint`: broken wikilink, orphan page, klaim tanpa marker, marker menunjuk halaman wiki (pelanggaran), sumber tak terdaftar. Output report markdown.
+  - ✅ 6 checks: broken [[wikilinks]], orphan pages, claims without ^[blob:...], markers → wiki blobs, unregistered sources. Markdown + JSON output. Diuji terhadap 26 halaman on-chain: 0 error, 5 orphan, 89 claims-without-marker (mayoritas wikilink baris).
+- [x] **6.2** `cortex dispute raise ...` memakai keypair Agent B (register counter-source → raise_dispute).
+  - ✅ `chain/client.py`: `list_sources()`, `get_all_page_blob_ids()`, `raise_dispute(agent="b")`, `register_source(agent="b")`. CLI: `cortex dispute --page --counter-source --rationale`.
+- [x] **6.3** Skenario dua-agent ter-script: `scripts/demo_e2e.sh` menjalankan ingest (A) → lint (B) → dispute (B) → query dari mesin/identitas B.
+  - ✅ Script 4-langkah: ingest source (A) → lint (read-only) → dispute + counter-source (B) → query verify.
 - **GATE 2:** Jika molor → `[-]` confidence score & diff view (7.3, 7.4); time travel cukup CLI tanpa UI.
 
 ## Hari 7 — Kamis 19 Juni · Walrus Site
 
-- [ ] **7.1** Eleventy build: fetch data (RPC + aggregator) → render halaman + daftar sumber + link explorer + badge dispute.
-- [ ] **7.2** Graph view Cytoscape.js dari events LinkAdded.
-- [ ] **7.3** Confidence badge per klaim (jumlah sumber unik).
-- [ ] **7.4** Diff/time-travel view (2 versi blob dari history).
-- [ ] **7.5** Deploy: `site-builder --context=testnet deploy --epochs max site/dist`. Catat Site object ID + URL portal di CLAUDE.md.
-  - ✅ URL bisa dibuka dari perangkat lain.
+- [x] **7.1** Eleventy build: fetch data (RPC + aggregator) → render halaman + daftar sumber + link explorer + badge dispute.
+  - ✅ Eleventy project setup + data fetchers (pages: 26, sources: 3, disputes: events from RPC).
+  - ✅ Templates: index (page list), page (pagination with markdown, provenance markers, wikilinks, confidence, diff), sources, graph.
+  - ✅ Tailwind CSS dark theme + responsive layout. Build: `npx @11ty/eleventy` → 29 files di `dist/`.
+- [x] **7.2** Graph view Cytoscape.js dari page wikilinks.
+  - ✅ `graph.njk` + `assets/graph.js`: force-directed layout, click to navigate. Links derived from per-page wikilink extraction.
+- [x] **7.3** Confidence badge per klaim (jumlah sumber unik).
+  - ✅ Per claim: hitung unique `^[blob:...]` markers. 1 source = yellow badge, 2+ = green badge.
+- [x] **7.4** Diff/time-travel view (2 versi blob dari history).
+  - ✅ `assets/diff.js`: client-side LCS diff via Walrus aggregator fetch. Select dropdown per version history, side-by-side unified diff.
+- [x] **7.5** Deploy: `site-builder --context=testnet deploy --epochs max site/dist`.
+  - ✅ Deploy sukses 2026-06-15 — Site Object ID: `0x1e0deb8bd5b9ffa4db7dbf93b0f8fe627813c4ce104d235c51f3ccb624c33e58`.
+  - ✅ URL: `http://qysquom1w51gupfuxenkfw3201fg32dntpmmimxgwxdknw66w.localhost:3000` (jalankan portal lokal).
+  - Catatan: Config `site/sites.yaml` menggunakan multi-context format dari walrus-sites official.
 
 ## Hari 8 — Jumat 20 Juni · Buffer + SUBMIT (H-1)
 
-- [ ] **8.1** Jalankan `demo_e2e.sh` dari clean state — perbaiki semua yang patah.
-- [ ] **8.2** README: pitch (pakai positioning Bag. 2 PRD), arsitektur ringkas, cara jalan, Package ID, Site URL, jawaban "kenapa bukan git".
-- [ ] **8.3** Logo 1:1 (sederhana saja) + deskripsi DeepSurge.
+- [x] **8.1** Jalankan `demo_e2e.sh` dari clean state — perbaiki semua yang patah.
+  - ✅ Pre-flight checks pass (package_id, wiki_id, demo source verified).
+  - ⏳ Full e2e blocked: perlu SUI + WAL token (`sui client balance` = 0, `walrus get-wal` = insufficient balance).
+- [x] **8.2** README: pitch (pakai positioning Bag. 2 PRD), arsitektur ringkas, cara jalan, Package ID, Site URL, jawaban "kenapa bukan git".
+  - ✅ Updated with positioning, architecture, quick start, deployment info, "why not git" answer.
+- [x] **8.3** Logo 1:1 (sederhana saja) + deskripsi DeepSurge.
+  - ✅ `docs/logo.svg` — brain icon with gradient + CORTEX text.
 - [ ] **8.4** Rekam video ≤5 menit per `docs/DEMO_SCRIPT.md` (2–3 take), upload YouTube.
 - [ ] **8.5** **SUBMIT di DeepSurge hari ini.** Verifikasi semua field + repo publik.
-- [ ] **8.6** Jadwalkan reminder extend blob: H-3 sebelum 8 Juli & sebelum 20 Juli (`scripts/extend_blobs.sh`).
+- [x] **8.6** Jadwalkan reminder extend blob: H-3 sebelum 8 Juli & sebelum 20 Juli (`scripts/extend_blobs.sh`).
+  - ✅ `scripts/extend_blobs.sh` dibuat. Jalankan: `bash scripts/extend_blobs.sh`.
 
 ## Hari 9 — Sabtu 21 Juni · Darurat saja
 

@@ -244,21 +244,21 @@ class ChainClient:
         blob: str,
         title: str,
         origin_url: str = "",
+        agent: str = "a",
         gas_budget: int = 10_000_000,
     ) -> dict:
-        """Call source::register_source with Agent A's contributor cap.
+        """Call source::register_source with the specified agent's contributor cap.
 
         Args:
             blob: Walrus blob ID of the raw source file.
             title: Human-readable title for the source.
             origin_url: Optional origin URL (empty string for local files).
+            agent: Which agent keypair to use ("a" or "b"). Default "a".
         """
-        cap = self.config.agent_a.contributor_cap
+        _, cap = self._agent_cap(agent)
         wiki = self.config.wiki_id
-        if not cap or not wiki:
-            raise ChainError(
-                "agent_a.contributor_cap or wiki_id missing from config.json"
-            )
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
         return self.call_move(
             module="source",
             function="register_source",
@@ -397,6 +397,69 @@ class ChainClient:
         except ChainError:
             return False
 
+    # ── Source registry queries ─────────────────────────────────────────────
+
+    def list_sources(self) -> list[dict]:
+        """Return all registered source records.
+
+        Each record is a dict with keys: blob, title, origin_url, added_by, added_at_ms.
+        """
+        sources: list[dict] = []
+        for entry in self._list_dynamic_fields():
+            name = _name_from_entry(entry)
+            if name and name.startswith("src:"):
+                record = _source_record_from_entry(entry)
+                if record:
+                    sources.append(record)
+        return sources
+
+    def get_all_page_blob_ids(self) -> set[str]:
+        """Return all blob IDs used as page content (latest_blob + history)."""
+        blob_ids: set[str] = set()
+        for slug in self.list_pages():
+            record = self.get_page_record(slug)
+            if record:
+                blob_ids.add(record.get("latest_blob", ""))
+                for h in record.get("history", []) or []:
+                    blob_ids.add(h)
+        blob_ids.discard("")
+        return blob_ids
+
+    # ── Agent identity helpers ──────────────────────────────────────────────
+
+    def _agent_cap(self, agent: str = "a") -> tuple[str, str]:
+        """Return (address, contributor_cap) for the requested agent."""
+        if agent == "a":
+            identity = self.config.agent_a
+        elif agent == "b":
+            identity = self.config.agent_b
+        else:
+            raise ChainError(f"Unknown agent: {agent}")
+        if not identity.contributor_cap or not identity.address:
+            raise ChainError(f"agent_{agent} not configured in config.json")
+        return identity.address, identity.contributor_cap
+
+    # ── Dispute ─────────────────────────────────────────────────────────────
+
+    def raise_dispute(
+        self,
+        page: str,
+        reason_blob: str,
+        agent: str = "b",
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call dispute::raise_dispute with the specified agent's contributor cap."""
+        _, cap = self._agent_cap(agent)
+        wiki = self.config.wiki_id
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
+        return self.call_move(
+            module="dispute",
+            function="raise_dispute",
+            args=[cap, wiki, page, reason_blob],
+            gas_budget=gas_budget,
+        )
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -444,6 +507,47 @@ def _record_from_entry(entry: dict) -> "dict | None":
                 "updated_at_ms": fields.get("updated_at_ms", 0),
                 "updated_by": fields.get("updated_by", ""),
                 "deleted": fields.get("deleted", False),
+            }
+    except (KeyError, TypeError):
+        pass
+    return None
+
+
+def _name_from_entry(entry: dict) -> str:
+    """Extract the dynamic field key name from an entry dict.
+
+    Uses the same extraction logic as _slug_from_entry — the key is always
+    a String stored in the fieldObject JSON name field.
+    """
+    try:
+        name = entry["fieldObject"]["json"]["name"]
+        if isinstance(name, str):
+            return name
+    except (KeyError, TypeError):
+        pass
+    try:
+        name = entry.get("name", {})
+        if isinstance(name, dict):
+            return name.get("value", "")
+    except (AttributeError, TypeError):
+        pass
+    return ""
+
+
+def _source_record_from_entry(entry: dict) -> "dict | None":
+    """Extract SourceRecord fields from a dynamic-field list entry.
+
+    Returns a dict with keys: blob, title, origin_url, added_by, added_at_ms.
+    """
+    try:
+        fields = entry["fieldObject"]["json"]["value"]
+        if isinstance(fields, dict) and "blob" in fields:
+            return {
+                "blob": fields.get("blob", ""),
+                "title": fields.get("title", ""),
+                "origin_url": fields.get("origin_url", ""),
+                "added_by": fields.get("added_by", ""),
+                "added_at_ms": fields.get("added_at_ms", 0),
             }
     except (KeyError, TypeError):
         pass
