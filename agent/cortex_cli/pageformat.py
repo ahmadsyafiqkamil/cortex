@@ -88,7 +88,9 @@ def split_claims(md: str) -> list[Claim]:
         blobs = _MARKER_RE.findall(line)
         if blobs:
             # Strip marker syntax for display; keep the text readable.
-            clean = _MARKER_RE.sub("", line).strip().rstrip(".")
+            # rstrip(". ") drops the trailing period *and* the space the marker
+            # left behind when it sat just before the period.
+            clean = _MARKER_RE.sub("", line).strip().rstrip(". ")
             if clean:
                 claims.append(Claim(text=clean, blobs=blobs))
 
