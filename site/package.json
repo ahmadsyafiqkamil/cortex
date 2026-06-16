@@ -7,7 +7,9 @@
     "dev": "vite",
     "prebuild": "node scripts/fetch-cortex-data.mjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit && eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -72,10 +74,17 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "4.1.12",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "4.7.0",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.6.0",
     "tailwindcss": "4.1.12",
+    "typescript-eslint": "^8.61.1",
     "vite": "6.3.5"
   },
   "pnpm": {

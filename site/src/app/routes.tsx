@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createHashRouter, useRouteError } from "react-router";
 import { Layout } from "./components/Layout";
 import { Landing } from "./pages/Landing";
@@ -7,7 +8,7 @@ import { GraphView } from "./pages/GraphView";
 import { SourcesScreen } from "./pages/SourcesScreen";
 
 function ErrorBoundary() {
-  const error = useRouteError() as any;
+  const error = useRouteError() as Error | undefined;
   return (
     <div style={{ padding: 20, color: 'red', backgroundColor: 'black', minHeight: '100vh', fontFamily: 'monospace' }}>
       <h2>Application Error</h2>

@@ -11,7 +11,6 @@ const OUT_PATH = resolve(__dirname, "..", "src", "app", "data", "cortex-data.jso
 
 const SYSTEM_SLUGS = new Set(["_index", "_log"]);
 const FRONTMATTER_RE = /^---\s*\n(.*?)\n---\s*\n?/s;
-const MARKER_RE = /\^\[blob:([A-Za-z0-9_\-]+)\]/g;
 const WIKILINK_RE = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 const RPC_URL = "https://fullnode.testnet.sui.io:443";
 const AGGREGATOR = "https://aggregator.walrus-testnet.walrus.space/v1/blobs";
@@ -31,7 +30,7 @@ function suiJSONSafe(args) {
 
 function readBlob(blobId) {
   const cached = resolve(CACHE_DIR, blobId);
-  try { return readFileSync(cached, "utf-8"); } catch {}
+  try { return readFileSync(cached, "utf-8"); } catch { /* cache miss, fall through to walrus read */ }
   try {
     return execSync(`walrus read ${blobId} --context testnet`, {
       encoding: "utf-8",
@@ -88,14 +87,6 @@ function bodyWithoutFrontmatter(md) {
   return md.replace(FRONTMATTER_RE, "").trim();
 }
 
-function extractMarkers(md) {
-  const markers = [];
-  let m;
-  while ((m = MARKER_RE.exec(md)) !== null) markers.push(m[1]);
-  MARKER_RE.lastIndex = 0;
-  return markers;
-}
-
 function extractWikilinks(md) {
   const links = [];
   let m;
@@ -117,7 +108,7 @@ function assignPositions(pages) {
   }));
 }
 
-async function fetchPages(wikiId, packageId) {
+async function fetchPages(wikiId, _packageId) {
   const dfResult = suiJSONSafe(["dynamic-field", wikiId]);
   if (!dfResult) return [];
 

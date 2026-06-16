@@ -1,7 +1,7 @@
 import { useParams, Link } from "react-router";
 import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy, AlertTriangle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-import { pages, pageBySlug } from "../data/mock";
+import { pageBySlug } from "../data/mock";
 import { AttestPanel } from "../components/AttestPanel";
 
 const BLOB_URL = "https://aggregator.walrus-testnet.walrus.space/v1/blobs";

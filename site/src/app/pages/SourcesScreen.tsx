@@ -1,8 +1,91 @@
-import { ExternalLink, FileText } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ExternalLink, FileText, Play, RefreshCw } from "lucide-react";
+import {
+  ConnectButton,
+  useCurrentAccount,
+  useSuiClient,
+} from "@mysten/dapp-kit";
 import { sources, pages, type Source } from "../data/mock";
+import { PACKAGE_ID, WIKI_ID, AGGREGATOR_URL } from "../lib/sui";
+import { GeneratePagesModal } from "../components/GeneratePagesModal";
 
 export function SourcesScreen() {
-  const sourceWithPages = sources.map((s) => ({
+  const account = useCurrentAccount();
+  const client = useSuiClient();
+  const [isContributor, setIsContributor] = useState(false);
+  const [contributorLoading, setContributorLoading] = useState(true);
+  const [activeModal, setActiveModal] = useState<{ blobId: string; title: string } | null>(null);
+  const [liveSources, setLiveSources] = useState<Source[] | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const checkContributor = useCallback(async () => {
+    if (!account) {
+      setIsContributor(false);
+      setContributorLoading(false);
+      return;
+    }
+    try {
+      const objs = await client.getOwnedObjects({
+        owner: account.address,
+        filter: { StructType: `${PACKAGE_ID}::wiki::ContributorCap` },
+        options: { showType: true },
+      });
+      setIsContributor((objs.data?.length ?? 0) > 0);
+    } catch {
+      setIsContributor(false);
+    }
+    setContributorLoading(false);
+  }, [account, client]);
+
+  useEffect(() => {
+    setContributorLoading(true);
+    checkContributor();
+  }, [checkContributor]);
+
+  const fetchLiveSources = useCallback(async () => {
+    if (!WIKI_ID) return;
+    setRefreshing(true);
+    try {
+      const dfs = await client.getDynamicFields({ parentId: WIKI_ID });
+      const fetched: Source[] = [];
+
+      for (const df of dfs.data) {
+        const name = (df.name as any)?.value ?? String(df.name ?? "");
+        if (!name.startsWith("src:")) continue;
+
+        try {
+          const obj = await client.getObject({
+            id: df.objectId,
+            options: { showContent: true },
+          });
+          const fields = (obj.data?.content as any)?.fields ?? {};
+          const blob = fields.blob ?? "";
+          if (!blob) continue;
+
+          fetched.push({
+            id: blob,
+            title: fields.title ?? blob,
+            blob,
+            url: `${AGGREGATOR_URL}/${blob}`,
+          });
+        } catch {
+          // skip unreadable entries
+        }
+      }
+
+      setLiveSources(fetched);
+    } catch {
+      // keep existing data
+    }
+    setRefreshing(false);
+  }, [client]);
+
+  useEffect(() => {
+    fetchLiveSources();
+  }, [fetchLiveSources]);
+
+  const displaySources = liveSources && liveSources.length > 0 ? liveSources : sources;
+  const sourceWithPages = displaySources.map((s) => ({
     ...s,
     citedBy: pages.filter((p) => p.sourceIds?.includes(s.id)),
   }));
@@ -16,16 +99,55 @@ export function SourcesScreen() {
               <span className="w-2 h-2 bg-white" />
               REGISTERED_SOURCES
             </h2>
-            <span className="font-mono text-[10px] text-zinc-500 uppercase">COUNT: {sources.length}</span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-zinc-500 uppercase">
+                COUNT: {displaySources.length}
+              </span>
+              <button
+                onClick={fetchLiveSources}
+                disabled={refreshing}
+                className="font-mono text-[10px] uppercase tracking-wider border border-zinc-700 text-zinc-400
+                           px-2 py-0.5 hover:border-white hover:text-white transition-colors flex items-center gap-1"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+                REFRESH
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col">
             {sourceWithPages.map((source, i) => (
-              <SourceRow key={source.id} source={source} index={i} isLast={i === sources.length - 1} />
+              <SourceRow
+                key={source.id}
+                source={source}
+                index={i}
+                isLast={i === sources.length - 1}
+                isContributor={isContributor}
+                contributorLoading={contributorLoading}
+                onGeneratePages={(blobId, title) => setActiveModal({ blobId, title })}
+              />
             ))}
           </div>
         </div>
+
+        {!account && (
+          <div className="border border-zinc-800 bg-black p-6">
+            <p className="font-mono text-xs text-zinc-500 mb-4">
+              CONNECT_WALLET_AS_CONTRIBUTOR_TO_GENERATE_PAGES
+            </p>
+            <ConnectButton className="!font-mono !text-xs !uppercase !tracking-wider !border !border-white/30 !bg-transparent !text-white hover:!bg-white/10 !rounded-none !px-4 !py-2" />
+          </div>
+        )}
       </div>
+
+      {activeModal && (
+        <GeneratePagesModal
+          blobId={activeModal.blobId}
+          title={activeModal.title}
+          open={true}
+          onClose={() => setActiveModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -34,10 +156,16 @@ function SourceRow({
   source,
   index,
   isLast,
+  isContributor,
+  contributorLoading,
+  onGeneratePages,
 }: {
   source: Source & { citedBy: typeof pages };
   index: number;
   isLast: boolean;
+  isContributor: boolean;
+  contributorLoading: boolean;
+  onGeneratePages: (blobId: string, title: string) => void;
 }) {
   return (
     <div
@@ -60,15 +188,33 @@ function SourceRow({
             <span className="text-zinc-400 group-hover:text-zinc-300 transition-colors truncate max-w-[200px]">
               {source.blob}
             </span>
+          </div>
+
+          <div className="flex items-center gap-3 mt-2">
             {source.url && (
               <a
                 href={source.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-zinc-600 hover:text-white transition-colors ml-auto flex-shrink-0"
+                className="font-mono text-[10px] flex items-center gap-1 text-zinc-600 hover:text-white transition-colors uppercase"
               >
-                VIEW <ExternalLink className="w-3 h-3" />
+                VIEW_SOURCE <ExternalLink className="w-3 h-3" />
               </a>
+            )}
+            {source.citedBy.length === 0 && isContributor && (
+              <button
+                onClick={() => onGeneratePages(source.blob, source.title)}
+                className="font-mono text-[10px] uppercase tracking-wider border border-green-700 text-green-400
+                           px-3 py-1 hover:bg-green-950 transition-colors flex items-center gap-1.5"
+              >
+                <Play className="w-3 h-3" />
+                GENERATE_PAGES
+              </button>
+            )}
+            {source.citedBy.length === 0 && !isContributor && !contributorLoading && (
+              <span className="font-mono text-[10px] text-zinc-600 uppercase">
+                CONTRIBUTOR_ONLY
+              </span>
             )}
           </div>
 

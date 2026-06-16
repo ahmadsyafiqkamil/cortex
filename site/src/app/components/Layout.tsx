@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
-import { Network, Database, Hexagon, Search } from "lucide-react";
+import { Network, Database, Hexagon, Search, FileText } from "lucide-react";
 import { clsx } from "clsx";
 import { useCurrentAccount, useDisconnectWallet, useSuiClient } from "@mysten/dapp-kit";
 import { PACKAGE_ID, WIKI_ID } from "../lib/sui";
@@ -43,6 +43,7 @@ export function Layout() {
   const navItems = [
     { name: "INDEX", path: "/app", icon: <Database className="w-4 h-4" /> },
     { name: "GRAPH_VIEW", path: "/app/graph", icon: <Network className="w-4 h-4" /> },
+    { name: "SOURCES", path: "/app/sources", icon: <FileText className="w-4 h-4" /> },
   ];
 
   return (

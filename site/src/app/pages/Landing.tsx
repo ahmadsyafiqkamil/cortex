@@ -1,11 +1,34 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Hexagon, ArrowRight, Database, ShieldCheck, Network, Terminal } from "lucide-react";
 import { useCurrentAccount, ConnectButton } from "@mysten/dapp-kit";
 
+function useTypewriter(text: string, delay = 80) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+
+    const interval = setInterval(() => {
+      setIndex((prev) => {
+        const next = prev + 1;
+        if (next > text.length) return 0;
+        return next;
+      });
+    }, delay);
+
+    return () => clearInterval(interval);
+  }, [text, delay]);
+
+  return text.slice(0, index);
+}
+
 export function Landing() {
   const account = useCurrentAccount();
   const navigate = useNavigate();
+
+  const TYPE_TEXT = "KNOWLEDGE\nIMMUTABLE.";
+  const displayed = useTypewriter(TYPE_TEXT, 120);
 
   useEffect(() => {
     if (account) {
@@ -50,9 +73,22 @@ export function Landing() {
             <div className="inline-block border-2 border-white px-3 py-1 font-mono text-xs font-bold uppercase text-white w-fit mb-8">
               v1.0.0-beta / Sui Testnet
             </div>
-            <h1 className="text-6xl lg:text-8xl xl:text-[10rem] font-bold text-white tracking-tighter leading-none mb-8">
-              KNOWLEDGE<br />
-              <span className="text-zinc-600">IMMUTABLE.</span>
+            <h1 className="text-6xl lg:text-8xl xl:text-[10rem] font-bold tracking-tighter leading-none mb-8">
+              {(() => {
+                const lines = displayed.split("\n");
+                return (
+                  <>
+                    <span className="text-white">{lines[0] || " "}</span>
+                    {lines.length > 1 && (
+                      <>
+                        <br />
+                        <span className="text-zinc-600">{lines[1]}</span>
+                      </>
+                    )}
+                    <span className="animate-pulse text-zinc-500">_</span>
+                  </>
+                );
+              })()}
             </h1>
             <p className="text-xl lg:text-2xl text-zinc-400 max-w-2xl font-medium leading-relaxed mb-12">
               A decentralized, censorship-resistant wiki powered by Walrus storage and the Sui consensus engine. Zero single points of failure.
@@ -87,7 +123,7 @@ export function Landing() {
             />
             
             {/* Terminal Mockup */}
-            <div className="relative z-10 border-2 border-white bg-[#020202] shadow-2xl">
+            <div className="relative z-10 border-2 border-white bg-[#020202] shadow-2xl w-full max-w-md mx-auto lg:mx-0">
               <div className="border-b-2 border-white px-4 py-2 flex items-center gap-2 bg-white text-black font-mono text-xs font-bold uppercase">
                 <Terminal className="w-4 h-4" />
                 cortex-daemon

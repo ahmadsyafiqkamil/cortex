@@ -1,0 +1,43 @@
+# Keterbatasan Pemulangan Jenazah WNI dari Luar Negeri
+
+## Ringkasan Temuan
+
+Laporan ini menyajikan temuan dari investigasi independen mengenai
+pemulangan jenazah WNI dari luar negeri selama 2023-2024. Berdasarkan
+wawancara dengan 47 keluarga WNI serta dokumen internal 12 perwakilan
+RI, ditemukan adanya kesenjangan signifikan antara prosedur tertulis
+dan realitas di lapangan.
+
+## Biaya Tidak Transparan
+
+Berbeda dengan klaim bahwa pemulangan jenazah adalah layanan konsuler
+gratis, mayoritas keluarga (38 dari 47 responden) melaporkan diminta
+membayar biaya tidak resmi berkisar antara Rp 15 juta hingga Rp 85
+juta untuk "biaya administrasi", "uji jenazah", atau "pengawalan".
+Tidak ada kwitansi resmi yang diberikan dalam 31 dari 38 kasus.
+
+## Rentang Waktu Berlarut-larut
+
+Prosedur standar menyebutkan pemulangan dapat diselesaikan dalam
+3-5 hari kerja. Namun, data menunjukkan rata-rata waktu aktual adalah
+**12 hari** (median: 9 hari, maksimum: 47 hari). Keterlambatan terbesar
+terjadi pada koordinasi antar-instansi: Kedutaan, rumah sakit setempat,
+maskapai penerbangan, dan Kementerian Luar Negeri RI.
+
+## Dokumen yang Sering Tidak Lengkap
+
+Dari 47 kasus yang diteliti:
+- 14 kasus: surat kematian lokal tidak diterjemahkan secara resmi
+- 9 kasus: dokumen karantina tidak lengkap saat tiba di Indonesia
+- 6 kasus: jenazah tertahan di bandara karena ketidakcocokan dokumen
+
+## Rekomendasi
+
+1. Standarisasi dan transparansi biaya pemulangan jenazah
+2. Digitalisasi proses pengurusan dokumen antar-instansi
+3. Penetapan SLA maksimal 7 hari kerja dengan mekanisme eskalasi
+4. Audit berkala terhadap perwakilan RI terkait layanan pemulangan
+
+---
+*Sumber: Investigasi Independen LSM Pengawas Layanan Publik, Januari 2025*
+*Metodologi: Wawancara semi-terstruktur, analisis dokumen, FOI request*

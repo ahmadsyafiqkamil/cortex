@@ -16,12 +16,6 @@ interface Application {
   resolved_at_ms: number;
 }
 
-const STATUS_LABELS: Record<number, { label: string; color: string }> = {
-  0: { label: "PENDING", color: "text-amber-400" },
-  1: { label: "APPROVED", color: "text-green-400" },
-  2: { label: "REJECTED", color: "text-red-400" },
-};
-
 export function ContributorDashboard() {
   const account = useCurrentAccount();
   const client = useSuiClient();
@@ -156,7 +150,6 @@ export function ContributorDashboard() {
     signAndExecute({ transaction: tx }, { onSuccess: () => fetchData() });
   };
 
-  const pendingAppAddresses = new Set(pendingApps.map((a) => a.applicant));
   const approvedAddresses = new Set(approvedApps.map((a) => a.applicant));
 
   return (
