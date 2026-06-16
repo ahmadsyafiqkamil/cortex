@@ -339,7 +339,7 @@ export function IngestPanel() {
           <p>
             <span className="text-zinc-600">3.</span>{" "}
             <code className="text-zinc-400 bg-zinc-900 px-1.5 py-0.5">
-              python -m cortex_cli ingest your-source.txt --title "Title" --address {account?.address.slice(0, 10)}...
+              python -m cortex_cli ingest your-source.txt --title "Title"
             </code>
           </p>
           <p className="text-zinc-600 mt-2">

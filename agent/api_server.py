@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -52,11 +53,28 @@ def _run_ingest(job_id: str, blob_id: str, title: str, address: str) -> None:
         _jobs[job_id]["status"] = "running"
         _jobs[job_id]["log"] = []
 
+    sys.path.insert(0, str(_AGENT_DIR))
+    from walrus.client import WalrusClient, WalrusError
+
+    try:
+        walrus = WalrusClient()
+        blob_bytes = walrus.read(blob_id)
+    except WalrusError as exc:
+        with _lock:
+            _jobs[job_id]["status"] = "error"
+            _jobs[job_id]["error"] = f"Failed to read blob from Walrus: {exc}"
+        return
+
+    with tempfile.NamedTemporaryFile(
+        mode="wb", suffix=".txt", prefix="cortex_ingest_", delete=False
+    ) as f:
+        f.write(blob_bytes)
+        tmp_path = f.name
+
     cmd = [
         sys.executable, "-m", "cortex_cli", "ingest",
-        "--blob-id", blob_id,
+        str(tmp_path),
         "--title", title,
-        "--address", address,
     ]
 
     proc = subprocess.Popen(
@@ -87,6 +105,7 @@ def _run_ingest(job_id: str, blob_id: str, title: str, address: str) -> None:
             _jobs[job_id]["status"] = "error"
             _jobs[job_id]["error"] = "Ingest timed out (10 min limit)"
             _jobs[job_id]["log"] = out_lines[-200:]
+        Path(tmp_path).unlink(missing_ok=True)
         return
 
     with _lock:
@@ -102,6 +121,8 @@ def _run_ingest(job_id: str, blob_id: str, title: str, address: str) -> None:
             _jobs[job_id]["error"] = (
                 f"Exit code {proc.returncode}. Last 20 lines:\n{last}"[:2000]
             )
+
+    Path(tmp_path).unlink(missing_ok=True)
 
 
 def _extract_page_slugs(lines: list[str]) -> list[str]:

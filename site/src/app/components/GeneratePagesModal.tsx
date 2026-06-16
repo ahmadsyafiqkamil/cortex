@@ -117,7 +117,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose }: GeneratePag
   };
 
   const handleCopyCommand = () => {
-    const cmd = `python -m cortex_cli ingest --blob-id ${blobId} --title "${title}" --address ${account?.address ?? ""}`;
+    const cmd = `walrus read ${blobId} > source.txt && python -m cortex_cli ingest source.txt --title "${title}"`;
     navigator.clipboard.writeText(cmd);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
