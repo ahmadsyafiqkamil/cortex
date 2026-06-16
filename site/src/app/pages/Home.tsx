@@ -2,6 +2,8 @@ import { Link } from "react-router";
 import { ArrowRight, Clock, FileText, Activity, Hash, Layers } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pages } from "../data/mock";
+import { ApplyPanel } from "../components/ApplyPanel";
+import { ContributorDashboard } from "../components/ContributorDashboard";
 
 const recentPages = [...pages]
   .sort((a, b) => {
@@ -20,6 +22,7 @@ const SYSTEM_STATS = [
 
 export function Home() {
   return (
+    <>
     <div className="flex-1 flex p-6 max-w-[1400px] mx-auto w-full gap-6">
 
       {/* Left Column: Recent Updates */}
@@ -126,5 +129,12 @@ export function Home() {
       </div>
 
     </div>
+
+    {/* Contributor Section */}
+    <div className="max-w-[1400px] mx-auto w-full px-6 pb-6 flex flex-col gap-6">
+      <ApplyPanel />
+      <ContributorDashboard />
+    </div>
+    </>
   );
 }

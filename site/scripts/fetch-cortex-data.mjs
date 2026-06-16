@@ -276,6 +276,7 @@ async function main() {
       packageId,
       wikiId,
       network: config.network || "testnet",
+      ownerCapId: config.owner_cap_id || "",
       explorer: `https://suiscan.xyz/testnet`,
       aggregator: AGGREGATOR,
       buildTime: new Date().toISOString(),

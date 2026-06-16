@@ -1,7 +1,18 @@
-import { Link } from "react-router";
+import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { Hexagon, ArrowRight, Database, ShieldCheck, Network, Terminal } from "lucide-react";
+import { useCurrentAccount, ConnectButton } from "@mysten/dapp-kit";
 
 export function Landing() {
+  const account = useCurrentAccount();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (account) {
+      navigate("/app", { replace: true });
+    }
+  }, [account, navigate]);
+
   return (
     <div className="min-h-screen bg-[#020202] text-zinc-300 font-sans selection:bg-white selection:text-black flex flex-col">
       {/* Navbar */}
@@ -14,12 +25,19 @@ export function Landing() {
           <div className="flex items-center gap-6 font-mono text-xs uppercase font-bold tracking-wider">
             <a href="#architecture" className="hidden md:block text-zinc-400 hover:text-white transition-colors">Architecture</a>
             <a href="#provenance" className="hidden md:block text-zinc-400 hover:text-white transition-colors">Provenance</a>
-            <Link 
-              to="/app" 
-              className="bg-white text-black px-6 py-2 border-2 border-white hover:bg-transparent hover:text-white transition-colors flex items-center gap-2"
-            >
-              Enter_App <ArrowRight className="w-4 h-4" />
-            </Link>
+            {account ? (
+              <button
+                onClick={() => navigate("/app")}
+                className="bg-white text-black px-6 py-2 border-2 border-white hover:bg-transparent hover:text-white transition-colors flex items-center gap-2"
+              >
+                Enter_App <ArrowRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <ConnectButton
+                connectText="ENTER_APP"
+                className="[&_button]:!bg-white [&_button]:!text-black [&_button]:!px-6 [&_button]:!py-2 [&_button]:!border-2 [&_button]:!border-white hover:[&_button]:!bg-transparent hover:[&_button]:!text-white [&_button]:!transition-colors [&_button]:!rounded-none [&_button]:!font-mono [&_button]:!text-xs [&_button]:!font-bold [&_button]:!uppercase [&_button]:!tracking-wider [&_button]:!cursor-pointer"
+              />
+            )}
           </div>
         </div>
       </header>
@@ -40,12 +58,19 @@ export function Landing() {
               A decentralized, censorship-resistant wiki powered by Walrus storage and the Sui consensus engine. Zero single points of failure.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 font-mono font-bold uppercase">
-              <Link 
-                to="/app" 
-                className="bg-white text-black px-8 py-4 border-2 border-white hover:bg-transparent hover:text-white transition-colors text-center flex items-center justify-center gap-2 text-sm"
-              >
-                Launch_Client <ArrowRight className="w-4 h-4" />
-              </Link>
+              {account ? (
+                <button
+                  onClick={() => navigate("/app")}
+                  className="bg-white text-black px-8 py-4 border-2 border-white hover:bg-transparent hover:text-white transition-colors text-center flex items-center justify-center gap-2 text-sm"
+                >
+                  Launch_Client <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <ConnectButton
+                  connectText="LAUNCH_CLIENT"
+                  className="[&_button]:!bg-white [&_button]:!text-black [&_button]:!px-8 [&_button]:!py-4 [&_button]:!border-2 [&_button]:!border-white hover:[&_button]:!bg-transparent hover:[&_button]:!text-white [&_button]:!transition-colors [&_button]:!rounded-none [&_button]:!font-mono [&_button]:!text-sm [&_button]:!font-bold [&_button]:!uppercase [&_button]:!tracking-wider [&_button]:!cursor-pointer"
+                />
+              )}
               <button className="bg-transparent text-white px-8 py-4 border-2 border-zinc-700 hover:border-white transition-colors text-center flex items-center justify-center gap-2 text-sm">
                 <Terminal className="w-4 h-4" /> View_Docs
               </button>

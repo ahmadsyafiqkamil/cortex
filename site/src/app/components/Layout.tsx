@@ -1,9 +1,44 @@
-import { Outlet, Link, useLocation } from "react-router";
+import { useRef, useEffect, useState, useCallback } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import { Network, Database, Hexagon, Search } from "lucide-react";
 import { clsx } from "clsx";
+import { useCurrentAccount, useDisconnectWallet, useSuiClient } from "@mysten/dapp-kit";
+import { PACKAGE_ID, WIKI_ID } from "../lib/sui";
 
 export function Layout() {
   const location = useLocation();
+  const account = useCurrentAccount();
+  const client = useSuiClient();
+  const { mutate: disconnect } = useDisconnectWallet();
+  const navigate = useNavigate();
+  const wasConnected = useRef(false);
+  const [contributorStatus, setContributorStatus] = useState<"loading" | "contributor" | "non_contributor" | "pending" | "revoked">("loading");
+
+  useEffect(() => {
+    if (account) {
+      wasConnected.current = true;
+    } else if (wasConnected.current) {
+      navigate("/", { replace: true });
+    }
+  }, [account, navigate]);
+
+  const fetchContributorStatus = useCallback(async () => {
+    if (!account) return;
+    setContributorStatus("loading");
+    try {
+      const hasCap = await checkOwnsContributorCap(client, account.address, PACKAGE_ID);
+      const revoked = await checkIsRevoked(client, account.address, WIKI_ID);
+      if (hasCap && !revoked) setContributorStatus("contributor");
+      else if (revoked) setContributorStatus("revoked");
+      else setContributorStatus("non_contributor");
+    } catch {
+      setContributorStatus("non_contributor");
+    }
+  }, [account, client]);
+
+  useEffect(() => {
+    fetchContributorStatus();
+  }, [fetchContributorStatus]);
 
   const navItems = [
     { name: "INDEX", path: "/app", icon: <Database className="w-4 h-4" /> },
@@ -58,6 +93,39 @@ export function Layout() {
               </div>
               <div className="text-zinc-600">WALRUS SYNC: OK</div>
             </div>
+            {account && (
+              <div className="flex items-center gap-2">
+                {contributorStatus === "contributor" && (
+                  <span className="font-mono text-[9px] text-green-400 border border-green-800 px-2 py-0.5 uppercase tracking-wider">
+                    CONTRIBUTOR
+                  </span>
+                )}
+                {contributorStatus === "pending" && (
+                  <span className="font-mono text-[9px] text-amber-400 border border-amber-800 px-2 py-0.5 uppercase tracking-wider">
+                    PENDING
+                  </span>
+                )}
+                {contributorStatus === "revoked" && (
+                  <span className="font-mono text-[9px] text-red-400 border border-red-800 px-2 py-0.5 uppercase tracking-wider">
+                    REVOKED
+                  </span>
+                )}
+                {contributorStatus === "non_contributor" && (
+                  <span className="font-mono text-[9px] text-zinc-600 border border-zinc-800 px-2 py-0.5 uppercase tracking-wider">
+                    NON_CONTRIBUTOR
+                  </span>
+                )}
+                <span className="font-mono text-[10px] text-green-400 uppercase">
+                  {account.address.slice(0, 6)}...{account.address.slice(-4)}
+                </span>
+                <button
+                  onClick={() => disconnect()}
+                  className="border border-zinc-700 px-3 py-1 font-mono text-[10px] text-zinc-400 hover:text-white hover:border-white transition-colors uppercase font-bold"
+                >
+                  DISCONNECT
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -67,4 +135,40 @@ export function Layout() {
       </main>
     </div>
   );
+}
+
+async function checkOwnsContributorCap(
+  client: ReturnType<typeof useSuiClient>,
+  address: string,
+  packageId: string,
+): Promise<boolean> {
+  try {
+    const objs = await client.getOwnedObjects({
+      owner: address,
+      filter: { StructType: `${packageId}::wiki::ContributorCap` },
+      options: { showType: true },
+    });
+    return (objs.data?.length ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function checkIsRevoked(
+  client: ReturnType<typeof useSuiClient>,
+  address: string,
+  wikiId: string,
+): Promise<boolean> {
+  try {
+    const strip0x = address.startsWith("0x") ? address.slice(2) : address;
+    const revKey = `rev:${strip0x}`;
+    const dfs = await client.getDynamicFields({ parentId: wikiId });
+    for (const df of dfs.data) {
+      const name = (df.name as any)?.value ?? String(df.name ?? "");
+      if (name === revKey) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }

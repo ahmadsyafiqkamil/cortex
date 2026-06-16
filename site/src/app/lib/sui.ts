@@ -2,6 +2,7 @@ import data from "../data/cortex-data.json";
 
 export const PACKAGE_ID = data.config?.packageId || "";
 export const WIKI_ID = data.config?.wikiId || "";
+export const OWNER_CAP_ID = data.config?.ownerCapId || "";
 export const NETWORK = (data.config?.network || "testnet") as "testnet" | "mainnet";
 
 export function getPageBlob(slug: string): string {

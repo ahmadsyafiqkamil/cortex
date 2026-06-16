@@ -7,15 +7,18 @@
 module cortex::wiki;
 
 use std::string::{Self, String};
+use sui::address;
 use sui::clock::Clock;
 use sui::dynamic_field as df;
 use sui::event;
+use sui::tx_context::{Self, TxContext};
 
 // === Error codes (see ARCHITECTURE.md §2.1) ===
 const E_WRONG_WIKI: u64 = 0;
 const E_PAGE_EXISTS: u64 = 1;
 const E_PAGE_NOT_FOUND: u64 = 2;
 const E_NOT_OWNER: u64 = 3;
+const E_CONTRIBUTOR_REVOKED: u64 = 4;
 
 // === Structs ===
 
@@ -107,7 +110,7 @@ public fun add_page(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(cap.wiki_id == object::id(wiki), E_WRONG_WIKI);
+    assert_contributor(cap, wiki, ctx);
     assert!(!df::exists(&wiki.id, page), E_PAGE_EXISTS);
 
     let wiki_id = object::id(wiki);
@@ -143,7 +146,7 @@ public fun update_page(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    assert!(cap.wiki_id == object::id(wiki), E_WRONG_WIKI);
+    assert_contributor(cap, wiki, ctx);
     assert!(df::exists(&wiki.id, page), E_PAGE_NOT_FOUND);
 
     let wiki_id = object::id(wiki);
@@ -176,6 +179,32 @@ public fun archive_page(cap: &WikiOwnerCap, wiki: &mut Wiki, page: String) {
     record.deleted = true;
 }
 
+// === Contributor revocation ===
+
+public struct ContributorRevocation has store, drop {
+    revoked_at_ms: u64,
+}
+
+/// Revoke a contributor's rights. Owner only.
+/// The existing ContributorCap object stays at the contributor's address but
+/// becomes useless — assert_contributor checks the revocation list.
+public fun revoke_contributor(
+    cap: &WikiOwnerCap,
+    wiki: &mut Wiki,
+    contributor: address,
+    clock: &Clock,
+) {
+    assert!(cap.wiki_id == object::id(wiki), E_NOT_OWNER);
+    let key = contributor_address_key(contributor);
+    let revocation = ContributorRevocation { revoked_at_ms: clock.timestamp_ms() };
+    df::add(&mut wiki.id, key, revocation);
+}
+
+/// Returns true if `contributor` has been revoked.
+public fun is_contributor_revoked(wiki: &Wiki, contributor: address): bool {
+    df::exists(&wiki.id, contributor_address_key(contributor))
+}
+
 /// Record a graph edge. Pure event emission — no on-chain graph state is stored.
 public fun add_link(cap: &ContributorCap, wiki: &Wiki, from_page: String, to_page: String) {
     assert!(cap.wiki_id == object::id(wiki), E_WRONG_WIKI);
@@ -188,8 +217,30 @@ public(package) fun uid(wiki: &Wiki): &UID { &wiki.id }
 
 public(package) fun uid_mut(wiki: &mut Wiki): &mut UID { &mut wiki.id }
 
-public(package) fun assert_contributor(cap: &ContributorCap, wiki: &Wiki) {
+public(package) fun assert_contributor(cap: &ContributorCap, wiki: &Wiki, ctx: &TxContext) {
     assert!(cap.wiki_id == object::id(wiki), E_WRONG_WIKI);
+    assert!(!is_contributor_revoked(wiki, tx_context::sender(ctx)), E_CONTRIBUTOR_REVOKED);
+}
+
+public(package) fun assert_owner(cap: &WikiOwnerCap, wiki: &Wiki) {
+    assert!(cap.wiki_id == object::id(wiki), E_NOT_OWNER);
+}
+
+/// Remove a revocation marker (called when a previously-revoked user is re-approved).
+public(package) fun unrevoke_contributor(
+    cap: &WikiOwnerCap,
+    wiki: &mut Wiki,
+    contributor: address,
+) {
+    assert!(cap.wiki_id == object::id(wiki), E_NOT_OWNER);
+    let key = contributor_address_key(contributor);
+    let _revocation: ContributorRevocation = df::remove(&mut wiki.id, key);
+}
+
+fun contributor_address_key(addr: address): String {
+    let mut s = string::utf8(b"rev:");
+    s.append(address::to_string(addr));
+    s
 }
 
 // === Read-only views (used by tests and off-chain readers) ===

@@ -478,6 +478,185 @@ class ChainClient:
             gas_budget=gas_budget,
         )
 
+    # ── Contributor lifecycle ────────────────────────────────────────────────
+
+    def submit_application(
+        self,
+        rationale_blob: str,
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call contributor::submit_application — open to any address, no cap needed.
+
+        Args:
+            rationale_blob: Walrus blob ID containing the application rationale.
+        """
+        wiki = self.config.wiki_id
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
+        return self.call_move(
+            module="contributor",
+            function="submit_application",
+            args=[wiki, rationale_blob, "0x6"],
+            gas_budget=gas_budget,
+        )
+
+    def approve_application(
+        self,
+        applicant: str,
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call contributor::approve_application — owner only.
+
+        Args:
+            applicant: Sui address of the applicant to approve.
+        """
+        owner_cap = self.config.owner_cap_id
+        wiki = self.config.wiki_id
+        if not owner_cap or not wiki:
+            raise ChainError(
+                "owner_cap_id or wiki_id missing from config.json"
+            )
+        return self.call_move(
+            module="contributor",
+            function="approve_application",
+            args=[owner_cap, wiki, applicant, "0x6"],
+            gas_budget=gas_budget,
+        )
+
+    def reject_application(
+        self,
+        applicant: str,
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call contributor::reject_application — owner only.
+
+        Args:
+            applicant: Sui address of the applicant to reject.
+        """
+        owner_cap = self.config.owner_cap_id
+        wiki = self.config.wiki_id
+        if not owner_cap or not wiki:
+            raise ChainError(
+                "owner_cap_id or wiki_id missing from config.json"
+            )
+        return self.call_move(
+            module="contributor",
+            function="reject_application",
+            args=[owner_cap, wiki, applicant, "0x6"],
+            gas_budget=gas_budget,
+        )
+
+    def revoke_contributor(
+        self,
+        contributor_address: str,
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call wiki::revoke_contributor — owner only.
+
+        Marks an address as revoked; their ContributorCap becomes useless.
+        A revoked user may re-apply.
+
+        Args:
+            contributor_address: Sui address of the contributor to revoke.
+        """
+        owner_cap = self.config.owner_cap_id
+        wiki = self.config.wiki_id
+        if not owner_cap or not wiki:
+            raise ChainError(
+                "owner_cap_id or wiki_id missing from config.json"
+            )
+        return self.call_move(
+            module="wiki",
+            function="revoke_contributor",
+            args=[owner_cap, wiki, contributor_address, "0x6"],
+            gas_budget=gas_budget,
+        )
+
+    def list_applications(self) -> list[dict]:
+        """Return all contributor applications from on-chain dynamic fields.
+
+        Each record is a dict with keys: applicant, rationale_blob, status,
+        created_at_ms, resolved_at_ms.
+        """
+        apps: list[dict] = []
+        for entry in self._list_dynamic_fields():
+            name = _name_from_entry(entry)
+            if name and name.startswith("app:"):
+                record = _application_record_from_entry(entry, name)
+                if record:
+                    apps.append(record)
+        return apps
+
+    def get_application(self, applicant: str) -> "dict | None":
+        """Fetch a single contributor application by applicant address.
+
+        Returns a dict with keys: applicant, rationale_blob, status,
+        created_at_ms, resolved_at_ms. Returns None if not found.
+        """
+        key = f"app:{_strip_0x(applicant)}"
+        for entry in self._list_dynamic_fields():
+            name = _name_from_entry(entry)
+            if name and name == key:
+                return _application_record_from_entry(entry, name)
+        return None
+
+    def is_contributor_revoked(self, address: str) -> bool:
+        """Check if an address is on the contributor revocation list."""
+        wiki = self.config.wiki_id
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
+        try:
+            data = self._sui(["dynamic-field", wiki])
+        except ChainError:
+            return False
+        if not isinstance(data, dict):
+            return False
+        entries = data.get("dynamicFields", [])
+        if not isinstance(entries, list):
+            return False
+        target_key = f"rev:{_strip_0x(address)}"
+        for entry in entries:
+            if _name_from_entry(entry) == target_key:
+                return True
+        return False
+
+    def has_contributor_cap(self, address: str) -> bool:
+        """Check if an address owns a ContributorCap from the current package."""
+        if not self.config.package_id:
+            return False
+        try:
+            data = self._sui(["objects", address])
+        except ChainError:
+            return False
+        entries = data if isinstance(data, list) else []
+        if not entries:
+            return False
+        pkg_id = _strip_0x(self.config.package_id).lower()
+        for obj in entries:
+            inner = obj.get("data", {}) if isinstance(obj, dict) else {}
+            if not isinstance(inner, dict):
+                continue
+            move = inner.get("Move", {})
+            if not isinstance(move, dict):
+                continue
+            type_info = move.get("type_", {})
+            if not isinstance(type_info, dict):
+                continue
+            # type_ may be a raw string or a structured object
+            if isinstance(type_info, str):
+                if "ContributorCap" in type_info:
+                    return True
+            else:
+                # Structured: {"Struct": {"address": "0x03da...", "module": "wiki", "name": "ContributorCap"}}
+                struct = type_info.get("Struct", type_info.get("Other", {}))
+                if isinstance(struct, dict):
+                    addr = _strip_0x(struct.get("address", "")).lower()
+                    mod = struct.get("module", "")
+                    name = struct.get("name", "")
+                    if mod == "wiki" and name == "ContributorCap" and addr == pkg_id:
+                        return True
+        return False
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -580,3 +759,29 @@ def _to_vec_arg(items: list[str]) -> str:
     """
     escaped = ", ".join(f'"{item}"' for item in items)
     return f"[{escaped}]"
+
+
+def _application_record_from_entry(entry: dict, name: str) -> "dict | None":
+    """Extract ContributorApplication fields from a dynamic-field list entry.
+
+    Returns a dict with keys: applicant, rationale_blob, status,
+    created_at_ms, resolved_at_ms.
+    """
+    try:
+        fields = entry["fieldObject"]["json"]["value"]
+        if isinstance(fields, dict) and "applicant" in fields:
+            return {
+                "applicant": fields.get("applicant", ""),
+                "rationale_blob": fields.get("rationale_blob", ""),
+                "status": fields.get("status", 0),
+                "created_at_ms": fields.get("created_at_ms", 0),
+                "resolved_at_ms": fields.get("resolved_at_ms", 0),
+            }
+    except (KeyError, TypeError):
+        pass
+    return None
+
+
+def _strip_0x(addr: str) -> str:
+    """Remove 0x prefix if present. Sui Move address::to_string() omits it."""
+    return addr[2:] if addr.startswith("0x") else addr

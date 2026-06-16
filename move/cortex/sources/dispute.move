@@ -60,7 +60,7 @@ public fun raise_dispute(
     reason_blob: String,
     ctx: &mut TxContext,
 ) {
-    wiki::assert_contributor(cap, wiki);
+    wiki::assert_contributor(cap, wiki, ctx);
     assert!(wiki::page_exists(wiki, page), E_PAGE_NOT_FOUND);
 
     let wiki_id = object::id(wiki);
@@ -87,7 +87,7 @@ public fun resolve_dispute(
     accept: bool,
     ctx: &mut TxContext,
 ) {
-    wiki::assert_contributor(cap, wiki);
+    wiki::assert_contributor(cap, wiki, ctx);
     assert!(dispute.wiki_id == object::id(wiki), 0);
     assert!(dispute.status == STATUS_OPEN, E_DISPUTE_ALREADY_RESOLVED);
 

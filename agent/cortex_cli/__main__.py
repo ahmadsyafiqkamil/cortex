@@ -876,7 +876,239 @@ def dispute(
         rprint(f"  Rationale:      {rationale_blob}")
 
 
-# ── attest ────────────────────────────────────────────────────────────────────
+# ── contributor ────────────────────────────────────────────────────────────────
+
+contributor_app = typer.Typer(help="Contributor application and lifecycle management.")
+app.add_typer(contributor_app, name="contributor")
+
+
+@contributor_app.command("apply")
+def contributor_apply(
+    rationale: str = typer.Option(
+        "", "--rationale", "-r", help="Text explaining why you want to be a contributor."
+    ),
+) -> None:
+    """Apply to become a wiki contributor.
+
+    Stores your rationale on Walrus and submits an on-chain application.
+    Anyone can apply — the wiki owner must approve.
+    """
+    walrus = WalrusClient()
+    chain = ChainClient()
+
+    console.rule("[bold cyan]Contributor Application[/bold cyan]")
+    active = chain.get_active_address()
+    rprint(f"[bold]Applicant:[/bold]   {active}")
+
+    if not rationale.strip():
+        rprint(
+            "[yellow]No rationale provided. Use --rationale to explain why you'd "
+            "like to contribute.[/yellow]"
+        )
+
+    # Store rationale on Walrus
+    rprint("\n[bold cyan]Storing rationale on Walrus…[/bold cyan]")
+    try:
+        rationale_blob = walrus.store_text(rationale, name="contributor-apply")
+    except WalrusError as exc:
+        rprint(f"[red]Walrus error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    rprint(f"  [green]✓[/green] rationale_blob = {rationale_blob}")
+
+    # Submit application on-chain
+    rprint("\n[bold cyan]Submitting application on-chain…[/bold cyan]")
+    try:
+        chain.submit_application(rationale_blob=rationale_blob)
+        rprint(f"  [green]✓[/green] application submitted")
+    except ChainError as exc:
+        err = str(exc)
+        if "code 0" in err:
+            rprint(
+                f"  [yellow]You already have a PENDING application.[/yellow]"
+            )
+            raise typer.Exit(code=1)
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold green]Application submitted[/bold green]")
+    rprint(
+        f"[bold green]✓[/bold green] Your application is pending review by the wiki owner."
+    )
+
+
+@contributor_app.command("approve")
+def contributor_approve(
+    applicant: str = typer.Argument(..., help="Sui address of the applicant to approve."),
+) -> None:
+    """Approve a pending contributor application (owner only)."""
+    chain = ChainClient()
+
+    console.rule(f"[bold cyan]Approve Contributor — {applicant}[/bold cyan]")
+
+    # Verify application exists
+    app = chain.get_application(applicant)
+    if not app:
+        rprint(f"[red]No application found for {applicant}.[/red]")
+        raise typer.Exit(code=1)
+
+    status = app.get("status", -1)
+    if status == 0:
+        rprint(f"  [dim]Status: PENDING[/dim]")
+    elif status == 1:
+        rprint(f"  [yellow]Already APPROVED.[/yellow]")
+        raise typer.Exit(code=0)
+    elif status == 2:
+        rprint(f"  [yellow]Already REJECTED. Use reject first or ask them to re-apply.[/yellow]")
+        raise typer.Exit(code=1)
+
+    rprint(f"  [dim]Rationale: {app.get('rationale_blob', 'N/A')}[/dim]")
+
+    # Handle revoked re-approval
+    if chain.is_contributor_revoked(applicant):
+        rprint(f"  [yellow]Applicant was previously revoked — will restore on approval.[/yellow]")
+
+    rprint("\n[bold cyan]Approving on-chain…[/bold cyan]")
+    try:
+        chain.approve_application(applicant=applicant)
+        rprint(f"  [green]✓[/green] ContributorCap minted to {applicant}")
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold green]Approved[/bold green]")
+
+
+@contributor_app.command("reject")
+def contributor_reject(
+    applicant: str = typer.Argument(..., help="Sui address of the applicant to reject."),
+) -> None:
+    """Reject a pending contributor application (owner only)."""
+    chain = ChainClient()
+
+    console.rule(f"[bold cyan]Reject Application — {applicant}[/bold cyan]")
+
+    app = chain.get_application(applicant)
+    if not app:
+        rprint(f"[red]No application found for {applicant}.[/red]")
+        raise typer.Exit(code=1)
+
+    status = app.get("status", -1)
+    if status != 0:
+        rprint(f"  [yellow]Application is not PENDING (status={status}).[/yellow]")
+        raise typer.Exit(code=1)
+
+    rprint("\n[bold cyan]Rejecting on-chain…[/bold cyan]")
+    try:
+        chain.reject_application(applicant=applicant)
+        rprint(f"  [green]✓[/green] application rejected")
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold yellow]Rejected[/bold yellow]")
+
+
+@contributor_app.command("revoke")
+def contributor_revoke(
+    address: str = typer.Argument(..., help="Sui address of the contributor to revoke."),
+) -> None:
+    """Revoke a contributor's rights (owner only).
+
+    The contributor's cap becomes useless. They may re-apply.
+    """
+    chain = ChainClient()
+
+    console.rule(f"[bold cyan]Revoke Contributor — {address}[/bold cyan]")
+
+    if chain.is_contributor_revoked(address):
+        rprint(f"  [yellow]{address} is already revoked.[/yellow]")
+        raise typer.Exit(code=0)
+
+    rprint("\n[bold cyan]Revoking on-chain…[/bold cyan]")
+    try:
+        chain.revoke_contributor(contributor_address=address)
+        rprint(f"  [green]✓[/green] {address} revoked")
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold red]Revoked[/bold red]")
+
+
+@contributor_app.command("list")
+def contributor_list(
+    status_filter: str = typer.Option(
+        "", "--status", "-s",
+        help="Filter: pending, approved, or rejected (empty = all).",
+    ),
+) -> None:
+    """List all contributor applications."""
+    chain = ChainClient()
+    STATUS_LABELS = {0: "PENDING", 1: "APPROVED", 2: "REJECTED"}
+
+    console.rule("[bold cyan]Contributor Applications[/bold cyan]")
+
+    try:
+        apps = chain.list_applications()
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if status_filter:
+        filter_val = {"pending": 0, "approved": 1, "rejected": 2}.get(status_filter.lower())
+        if filter_val is None:
+            rprint(f"[red]Invalid status filter: {status_filter}. Use pending/approved/rejected.[/red]")
+            raise typer.Exit(code=1)
+        apps = [a for a in apps if a.get("status") == filter_val]
+
+    if not apps:
+        rprint("[yellow]No applications found.[/yellow]")
+        raise typer.Exit(code=0)
+
+    for app in apps:
+        status_label = STATUS_LABELS.get(app.get("status", -1), "UNKNOWN")
+        status_color = {"PENDING": "yellow", "APPROVED": "green", "REJECTED": "red"}.get(status_label, "dim")
+        rprint(
+            f"  [{status_color}]{status_label:>10}[/{status_color}]  "
+            f"[cyan]{app.get('applicant', '?')}[/cyan]  "
+            f"[dim]{app.get('rationale_blob', '')}[/dim]"
+        )
+
+    rprint(f"\n[dim]{len(apps)} application(s) shown.[/dim]")
+
+
+@contributor_app.command("status")
+def contributor_status(
+    applicant: str = typer.Argument(..., help="Sui address to check."),
+) -> None:
+    """Check an address's application and revocation status."""
+    chain = ChainClient()
+    STATUS_LABELS = {0: "PENDING", 1: "APPROVED", 2: "REJECTED"}
+
+    console.rule(f"[bold cyan]Contributor Status — {applicant}[/bold cyan]")
+
+    app = chain.get_application(applicant)
+    if app:
+        status_label = STATUS_LABELS.get(app.get("status", -1), "UNKNOWN")
+        console.print(f"  [bold]Application:[/bold]  {status_label}", markup=False)
+        console.print(f"  [bold]Rationale:[/bold]    [dim]{app.get('rationale_blob', 'N/A')}[/dim]")
+        rprint(f"  [bold]Created:[/bold]     {datetime.datetime.fromtimestamp(int(app.get('created_at_ms', 0)) / 1000, tz=datetime.timezone.utc).isoformat()}")
+    else:
+        rprint(f"  [dim]No application found.[/dim]")
+
+    try:
+        revoked = chain.is_contributor_revoked(applicant)
+    except ChainError:
+        revoked = False
+    rprint(f"  [bold]Revoked:[/bold]      {'[red]YES[/red]' if revoked else '[green]NO[/green]'}")
+
+    has_cap = chain.has_contributor_cap(applicant)
+    rprint(f"  [bold]Has Cap:[/bold]       {'[green]YES (active contributor)[/green]' if has_cap else '[yellow]NO[/yellow]'}")
+
+    if has_cap:
+        rprint(f"\n  [green]This address is an active contributor.[/green]")
+    else:
+        rprint(f"\n  [dim]This address is NOT an active contributor.[/dim]")
 
 @app.command("attest")
 def attest(

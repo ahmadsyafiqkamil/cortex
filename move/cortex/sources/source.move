@@ -37,7 +37,7 @@ public fun register_source(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    wiki::assert_contributor(cap, wiki);
+    wiki::assert_contributor(cap, wiki, ctx);
     let wiki_id = object::id(wiki);
     let added_by = ctx.sender();
     let key = source_key(blob);
