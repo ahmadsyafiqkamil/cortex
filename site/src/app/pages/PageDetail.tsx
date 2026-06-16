@@ -98,6 +98,7 @@ export function PageDetail() {
   const [editTxDigest, setEditTxDigest] = useState("");
   const [contributorCapId, setContributorCapId] = useState("");
   const [displayContent, setDisplayContent] = useState<string | null>(null);
+  const [newVersion, setNewVersion] = useState<{ hash: string; date: string; author: string; message: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchLiveDisputes = useCallback(async () => {
@@ -188,6 +189,12 @@ export function PageDetail() {
             setEditTxDigest(result.digest);
             const body = editContent.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, "").trim();
             setDisplayContent(body);
+            setNewVersion({
+              hash: newBlobId,
+              date: new Date().toISOString(),
+              author: account?.address ?? "",
+              message: "Page content updated",
+            });
             setEditing(false);
             setSaving(false);
             fetchLiveDisputes();
@@ -277,6 +284,7 @@ export function PageDetail() {
   }
 
   const hasOpenDispute = mergedDisputes.some((d) => d.status === "open");
+  const allVersions = newVersion ? [newVersion, ...page.versions] : page.versions;
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row w-full max-w-[1600px] mx-auto border-l border-r border-zinc-800">
@@ -483,7 +491,7 @@ export function PageDetail() {
           <div className="relative">
             <div className="absolute top-2 bottom-2 left-[11px] w-px bg-zinc-800" />
 
-            {page.versions.map((v, i) => (
+            {allVersions.map((v, i) => (
               <div key={v.hash} className="relative pl-8 pb-6 last:pb-0 group">
                 <div className={`absolute left-0 top-1 w-6 h-6 rounded-none flex items-center justify-center bg-[#020202] border transition-colors ${i === 0 ? 'border-white text-white' : 'border-zinc-800 text-zinc-600 group-hover:border-zinc-500 group-hover:text-white'}`}>
                   <GitCommit className="w-3 h-3" />
@@ -583,7 +591,7 @@ export function PageDetail() {
           </div>
           <div className="flex items-center justify-between text-xs font-mono uppercase">
             <span className="text-zinc-500">Versions:</span>
-            <span className="text-white font-bold">{page.versions.length}</span>
+            <span className="text-white font-bold">{allVersions.length}</span>
           </div>
           <div className="flex items-center justify-between text-xs font-mono uppercase">
             <span className="text-zinc-500">Sources:</span>
