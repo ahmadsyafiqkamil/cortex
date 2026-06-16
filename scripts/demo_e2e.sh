@@ -4,7 +4,7 @@
 # Flow:
 #   Agent A (ingest):     `cortex ingest` a raw source
 #   Agent B / read-only:  `cortex lint`   checks wiki quality
-#   Agent B (dispute):    `cortex dispute` files a counter-source dispute
+#   Agent B (dispute):    `cortex dispute raise` files a counter-source dispute
 #   Agent B (attest):     `cortex attest`  attests provenance on-chain
 #   Read-only:            `cortex query`   verifies answers with citations
 #
@@ -159,7 +159,7 @@ sui client switch --address "$AGENT_B" 2>/dev/null || \
     sui client new-env --alias cortex-b --rpc https://fullnode.testnet.sui.io:443 2>/dev/null || true
 sui client active-address
 
-if python3 -m cortex_cli dispute \
+if python3 -m cortex_cli dispute raise \
     --page "$DISPUTE_PAGE" \
     --counter-source "$COUNTER_SOURCE" \
     --title "Counter-source for $DISPUTE_PAGE" \

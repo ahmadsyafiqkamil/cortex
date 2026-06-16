@@ -23,3 +23,33 @@ export function buildAttestTx(slug: string) {
     arguments: [WIKI_ID, slug, pageBlob],
   };
 }
+
+export function buildRaiseDisputeTx(
+  slug: string,
+  reasonBlob: string,
+  contributorCapId: string,
+) {
+  if (!PACKAGE_ID || !WIKI_ID || !contributorCapId) return null;
+
+  return {
+    packageId: PACKAGE_ID,
+    module: "dispute",
+    function: "raise_dispute",
+    arguments: [contributorCapId, WIKI_ID, slug, reasonBlob],
+  };
+}
+
+export function buildResolveDisputeTx(
+  disputeId: string,
+  accept: boolean,
+  contributorCapId: string,
+) {
+  if (!PACKAGE_ID || !WIKI_ID || !contributorCapId) return null;
+
+  return {
+    packageId: PACKAGE_ID,
+    module: "dispute",
+    function: "resolve_dispute",
+    arguments: [contributorCapId, WIKI_ID, disputeId, accept],
+  };
+}

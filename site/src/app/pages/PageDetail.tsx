@@ -1,8 +1,13 @@
 import { useParams, Link } from "react-router";
 import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy, AlertTriangle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { useState, useEffect, useCallback } from "react";
+import { useSuiClient } from "@mysten/dapp-kit";
 import { pageBySlug } from "../data/mock";
 import { AttestPanel } from "../components/AttestPanel";
+import { DisputePanel } from "../components/DisputePanel";
+import { ResolveDisputeButton } from "../components/ResolveDisputeButton";
+import { PACKAGE_ID } from "../lib/sui";
 
 const BLOB_URL = "https://aggregator.walrus-testnet.walrus.space/v1/blobs";
 
@@ -50,6 +55,44 @@ function parseInline(text: string) {
 export function PageDetail() {
   const { slug } = useParams();
   const page = slug ? pageBySlug(slug) : undefined;
+  const client = useSuiClient();
+
+  const [liveDisputesRaised, setLiveDisputesRaised] = useState<any[]>([]);
+
+  const fetchLiveDisputes = useCallback(async () => {
+    if (!PACKAGE_ID || !slug) return;
+    try {
+      const raisedResult = await client.queryEvents({
+        query: { MoveEventType: `${PACKAGE_ID}::dispute::DisputeRaised` },
+        limit: 100,
+        order: "descending" as const,
+      });
+      setLiveDisputesRaised(
+        (raisedResult?.data ?? [])
+          .map((e: any) => e.parsedJson)
+          .filter((p: any) => p && p.page === slug)
+      );
+    } catch { /* keep prebuilt */ }
+  }, [slug, client]);
+
+  useEffect(() => { fetchLiveDisputes(); }, [fetchLiveDisputes]);
+
+  const mergeDisputes = () => {
+    const prebuilt = page?.disputes ?? [];
+    const prebuiltIds = new Set(prebuilt.map((d: any) => d.id));
+    const live = liveDisputesRaised
+      .filter((lr: any) => !prebuiltIds.has(lr.dispute_id))
+      .map((lr: any) => ({
+        id: lr.dispute_id,
+        status: "open" as const,
+        raisedBy: lr.raised_by,
+        counterSource: "",
+        rationale: lr.reason_blob ?? "",
+      }));
+    return [...prebuilt, ...live];
+  };
+
+  const mergedDisputes = mergeDisputes();
 
   if (!page) {
     return (
@@ -67,7 +110,7 @@ export function PageDetail() {
     );
   }
 
-  const hasOpenDispute = page.disputes.some((d) => d.status === "open");
+  const hasOpenDispute = mergedDisputes.some((d) => d.status === "open");
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row w-full max-w-[1600px] mx-auto border-l border-r border-zinc-800">
@@ -113,7 +156,7 @@ export function PageDetail() {
         {hasOpenDispute && (
           <div className="border-b border-amber-500/50 bg-amber-500/5 px-8 py-3 flex items-center gap-2 font-mono text-xs uppercase">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span className="text-amber-400 font-bold">{page.disputes.filter(d => d.status === "open").length} OPEN DISPUTE(S)</span>
+            <span className="text-amber-400 font-bold">{mergedDisputes.filter(d => d.status === "open").length} OPEN DISPUTE(S)</span>
             <a href="#disputes" className="text-amber-500 hover:text-amber-300 ml-auto">→ VIEW</a>
           </div>
         )}
@@ -227,23 +270,43 @@ export function PageDetail() {
           </div>
 
           {/* Disputes in sidebar */}
-          {page.disputes.length > 0 && (
+          {mergedDisputes.length > 0 && (
             <div id="disputes" className="border-t border-zinc-800 pt-4">
               <h4 className="font-mono text-[10px] text-amber-400 font-bold uppercase tracking-widest mb-3">
                 ACTIVE_DISPUTES
               </h4>
-              {page.disputes.map(d => (
-                <div key={d.id} className="border border-zinc-800 p-3 mb-2 bg-zinc-900/30">
-                  <div className="font-mono text-xs text-white font-bold mb-1">
-                    {d.status === "open" ? "OPEN" : "RESOLVED"}
-                  </div>
-                  <div className="font-mono text-[10px] text-zinc-400 mb-2">
-                    RAISED_BY: {d.raisedBy.slice(0, 16)}...
-                  </div>
-                  {d.counterSource && (
-                    <div className="font-mono text-[10px] text-zinc-500 truncate">
-                      COUNTER: {d.counterSource.slice(0, 16)}...
+              {mergedDisputes.map(d => (
+                <div key={d.id} className="border border-zinc-800 p-3 mb-2 bg-zinc-900/30 flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-xs font-bold uppercase mb-1">
+                      {d.status === "open" ? (
+                        <span className="text-amber-400">OPEN</span>
+                      ) : (
+                        <span className="text-green-400">RESOLVED</span>
+                      )}
                     </div>
+                    <div className="font-mono text-[10px] text-zinc-400 mb-1">
+                      ID: {d.id.slice(0, 16)}...
+                    </div>
+                    <div className="font-mono text-[10px] text-zinc-500 mb-1">
+                      RAISED_BY: {d.raisedBy.slice(0, 16)}...
+                    </div>
+                    {d.counterSource && (
+                      <div className="font-mono text-[10px] text-zinc-500 truncate">
+                        COUNTER: {d.counterSource.slice(0, 16)}...
+                      </div>
+                    )}
+                    {d.rationale && (
+                      <div className="font-mono text-[10px] text-zinc-500 truncate mt-1">
+                        RATIONALE: {d.rationale.slice(0, 16)}...
+                      </div>
+                    )}
+                  </div>
+                  {d.status === "open" && (
+                    <ResolveDisputeButton
+                      disputeId={d.id}
+                      onResolved={() => fetchLiveDisputes()}
+                    />
                   )}
                 </div>
               ))}
@@ -295,6 +358,8 @@ export function PageDetail() {
           sourceCount={page.sourceIds.length}
           hasOpenDispute={hasOpenDispute}
         />
+
+        <DisputePanel pageSlug={page.slug} />
       </div>
 
     </div>

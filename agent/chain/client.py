@@ -460,6 +460,95 @@ class ChainClient:
             gas_budget=gas_budget,
         )
 
+    def resolve_dispute(
+        self,
+        dispute_id: str,
+        accept: bool,
+        agent: str = "b",
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call dispute::resolve_dispute — accept or reject an open dispute."""
+        _, cap = self._agent_cap(agent)
+        wiki = self.config.wiki_id
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
+        return self.call_move(
+            module="dispute",
+            function="resolve_dispute",
+            args=[cap, wiki, dispute_id, "true" if accept else "false"],
+            gas_budget=gas_budget,
+        )
+
+    def list_disputes(self, page: str | None = None) -> list[dict]:
+        """Query on-chain events and return open/reconciled disputes."""
+        package_id = self.config.package_id
+        if not package_id:
+            raise ChainError("package_id not set in config.")
+
+        network = self.config.network or "testnet"
+        rpc_url = f"https://fullnode.{network}.sui.io:443"
+
+        def _query_event(event_name: str) -> list[dict]:
+            payload = json.dumps({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "suix_queryEvents",
+                "params": [
+                    {"MoveEventType": f"{package_id}::dispute::{event_name}"},
+                    None,
+                    200,
+                    True,
+                ],
+            })
+            try:
+                result = subprocess.run(
+                    ["curl", "-s", "-X", "POST", rpc_url,
+                     "-H", "Content-Type: application/json",
+                     "-d", payload],
+                    capture_output=True, text=True, timeout=20,
+                )
+                if result.returncode != 0:
+                    return []
+                data = json.loads(result.stdout)
+                return (data.get("result") or {}).get("data") or []
+            except (json.JSONDecodeError, subprocess.TimeoutExpired):
+                return []
+
+        raised_events = _query_event("DisputeRaised")
+        resolved_events = _query_event("DisputeResolved")
+
+        resolved_set: dict[str, int] = {}
+        for event in resolved_events:
+            p = event.get("parsedJson") or {}
+            did = p.get("dispute_id")
+            status = p.get("status", 0)
+            if did:
+                resolved_set[did] = status
+
+        disputes: list[dict] = []
+        for event in raised_events:
+            p = event.get("parsedJson") or {}
+            did = p.get("dispute_id")
+            p_page = p.get("page", "")
+            if not did:
+                continue
+            if page is not None and p_page != page:
+                continue
+            if did in resolved_set:
+                st = resolved_set[did]
+                status = "resolved" if st == 1 else "rejected"
+            else:
+                status = "open"
+            disputes.append({
+                "dispute_id": did,
+                "page": p_page,
+                "status": status,
+                "raised_by": p.get("raised_by", ""),
+                "reason_blob": p.get("reason_blob", ""),
+            })
+
+        return disputes
+
     def attest_provenance(
         self,
         page: str,

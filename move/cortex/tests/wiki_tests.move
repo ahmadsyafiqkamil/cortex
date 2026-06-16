@@ -1,9 +1,9 @@
 #[test_only]
 module cortex::wiki_tests;
 
-use cortex::dispute;
+use cortex::dispute::{Self, DisputeRecord};
 use cortex::source;
-use cortex::wiki::{Self, Wiki, WikiOwnerCap};
+use cortex::wiki::{Self, Wiki, WikiOwnerCap, ContributorCap};
 use std::string;
 use sui::clock;
 use sui::test_scenario as ts;
@@ -178,6 +178,166 @@ fun test_register_source_and_exists() {
     unit_test::destroy(w);
     unit_test::destroy(owner);
     unit_test::destroy(contrib);
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #7 — resolve_dispute with accept=true sets status to RESOLVED.
+#[test]
+fun test_resolve_dispute_accept() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+
+    wiki::create_wiki(string::utf8(b"C"), &clk, sc.ctx());
+
+    sc.next_tx(ADMIN);
+    {
+        let mut w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        wiki::add_page(&contrib, &mut w,
+            string::utf8(b"page-a"), string::utf8(b"V1"), vector[], &clk, sc.ctx());
+        dispute::raise_dispute(&contrib, &w, string::utf8(b"page-a"),
+            string::utf8(b"REASON"), sc.ctx());
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    sc.next_tx(ADMIN);
+    {
+        let w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        let mut dispute = sc.take_shared<DisputeRecord>();
+        dispute::resolve_dispute(&contrib, &w, &mut dispute, true, sc.ctx());
+        assert!(dispute::dispute_status(&dispute) == dispute::status_resolved(), 0);
+        ts::return_shared(dispute);
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #8 — resolve_dispute with accept=false sets status to REJECTED.
+#[test]
+fun test_resolve_dispute_reject() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+
+    wiki::create_wiki(string::utf8(b"C"), &clk, sc.ctx());
+
+    sc.next_tx(ADMIN);
+    {
+        let mut w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        wiki::add_page(&contrib, &mut w,
+            string::utf8(b"page-a"), string::utf8(b"V1"), vector[], &clk, sc.ctx());
+        dispute::raise_dispute(&contrib, &w, string::utf8(b"page-a"),
+            string::utf8(b"REASON"), sc.ctx());
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    sc.next_tx(ADMIN);
+    {
+        let w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        let mut dispute = sc.take_shared<DisputeRecord>();
+        dispute::resolve_dispute(&contrib, &w, &mut dispute, false, sc.ctx());
+        assert!(dispute::dispute_status(&dispute) == dispute::status_rejected(), 0);
+        ts::return_shared(dispute);
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #9 — double-resolve aborts E_DISPUTE_ALREADY_RESOLVED (1).
+#[test]
+#[expected_failure(abort_code = 1)]
+fun test_resolve_dispute_already_resolved_aborts() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+
+    wiki::create_wiki(string::utf8(b"C"), &clk, sc.ctx());
+
+    sc.next_tx(ADMIN);
+    {
+        let mut w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        wiki::add_page(&contrib, &mut w,
+            string::utf8(b"page-a"), string::utf8(b"V1"), vector[], &clk, sc.ctx());
+        dispute::raise_dispute(&contrib, &w, string::utf8(b"page-a"),
+            string::utf8(b"REASON"), sc.ctx());
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    sc.next_tx(ADMIN);
+    {
+        let w = sc.take_shared<Wiki>();
+        let owner = sc.take_from_sender<WikiOwnerCap>();
+        let contrib = wiki::mint_contributor_for_testing(&owner, &w, sc.ctx());
+        let mut dispute = sc.take_shared<DisputeRecord>();
+        dispute::resolve_dispute(&contrib, &w, &mut dispute, true, sc.ctx());
+        dispute::resolve_dispute(&contrib, &w, &mut dispute, true, sc.ctx());
+        ts::return_shared(dispute);
+        ts::return_shared(w);
+        sc.return_to_sender(owner);
+        unit_test::destroy(contrib);
+    };
+
+    clk.destroy_for_testing();
+    sc.end();
+}
+
+// Test #10 — resolve_dispute from wrong wiki aborts (wiki_id mismatch code 0).
+#[test]
+#[expected_failure(abort_code = 0)]
+fun test_resolve_dispute_wrong_wiki_aborts() {
+    let mut sc = ts::begin(ADMIN);
+    let clk = clock::create_for_testing(sc.ctx());
+
+    wiki::create_wiki(string::utf8(b"W1"), &clk, sc.ctx());
+
+    sc.next_tx(ADMIN);
+    {
+        let mut w1 = sc.take_shared<Wiki>();
+        let owner1 = sc.take_from_sender<WikiOwnerCap>();
+        let contrib1 = wiki::mint_contributor_for_testing(&owner1, &w1, sc.ctx());
+        wiki::add_page(&contrib1, &mut w1,
+            string::utf8(b"page-a"), string::utf8(b"V1"), vector[], &clk, sc.ctx());
+        dispute::raise_dispute(&contrib1, &w1, string::utf8(b"page-a"),
+            string::utf8(b"REASON"), sc.ctx());
+        ts::return_shared(w1);
+        sc.return_to_sender(owner1);
+        unit_test::destroy(contrib1);
+    };
+
+    sc.next_tx(ADMIN);
+    {
+        let (w2, owner2) = wiki::new_for_testing(string::utf8(b"W2"), &clk, sc.ctx());
+        let contrib2 = wiki::mint_contributor_for_testing(&owner2, &w2, sc.ctx());
+        let mut dispute = sc.take_shared<DisputeRecord>();
+        dispute::resolve_dispute(&contrib2, &w2, &mut dispute, true, sc.ctx());
+        ts::return_shared(dispute);
+        unit_test::destroy(w2);
+        unit_test::destroy(owner2);
+        unit_test::destroy(contrib2);
+    };
+
     clk.destroy_for_testing();
     sc.end();
 }

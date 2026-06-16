@@ -20,6 +20,7 @@ from pathlib import Path
 import typer
 from rich import print as rprint
 from rich.console import Console
+from rich.table import Table
 
 # Load .env from the agent/ directory so LLM_* vars are available.
 try:
@@ -771,10 +772,14 @@ def lint(
     rprint("\n[bold green]:heavy_check_mark: No errors found.[/bold green]")
 
 
-# ── dispute raise ──────────────────────────────────────────────────────────────
+# ── dispute ────────────────────────────────────────────────────────────────────
 
-@app.command("dispute")
-def dispute(
+dispute_app = typer.Typer(help="Raise, resolve, and list disputes against wiki pages.")
+app.add_typer(dispute_app, name="dispute")
+
+
+@dispute_app.command("raise")
+def dispute_raise(
     page: str = typer.Option(
         ..., "--page", "-p", help="Slug of the disputed wiki page."
     ),
@@ -807,12 +812,11 @@ def dispute(
     walrus = WalrusClient()
     chain = ChainClient()
 
-    console.rule("[bold cyan]Cortex Dispute[/bold cyan]")
+    console.rule("[bold cyan]Cortex Dispute — Raise[/bold cyan]")
     rprint(f"[bold]Page:[/bold]            {page}")
     rprint(f"[bold]Counter-source:[/bold] {counter_source}")
     rprint(f"[bold]Using:[/bold]           Agent B ({chain.config.agent_b.address})")
 
-    # ── Verify page exists ───────────────────────────────────────────────────
     try:
         record = chain.get_page_record(page)
     except ChainError as exc:
@@ -825,7 +829,6 @@ def dispute(
 
     rprint(f"  [green]:heavy_check_mark:[/green] page '{page}' exists on-chain")
 
-    # ── Step 1: Store counter-source on Walrus ───────────────────────────────
     rprint("\n[bold cyan]Step 1/3[/bold cyan] Storing counter-source on Walrus…")
     try:
         counter_blob = walrus.store(counter_source)
@@ -834,7 +837,6 @@ def dispute(
         raise typer.Exit(code=1)
     rprint(f"  [green]:heavy_check_mark:[/green] counter_source_blob = {counter_blob}")
 
-    # ── Step 2: Register counter-source on-chain (Agent B) ───────────────────
     rprint("\n[bold cyan]Step 2/3[/bold cyan] Registering counter-source on-chain (Agent B)…")
     try:
         chain.register_source(blob=counter_blob, title=title, origin_url=str(counter_source), agent="b")
@@ -847,7 +849,6 @@ def dispute(
             rprint(f"[red]Chain error (register_source):[/red] {exc}")
             raise typer.Exit(code=1)
 
-    # ── Step 3: Store rationale + raise dispute ──────────────────────────────
     rprint("\n[bold cyan]Step 3/3[/bold cyan] Raising dispute on-chain (Agent B)…")
     rationale_blob = ""
     if rationale.strip():
@@ -874,6 +875,78 @@ def dispute(
     rprint(f"  Counter-source: {counter_blob}")
     if rationale_blob:
         rprint(f"  Rationale:      {rationale_blob}")
+
+
+@dispute_app.command("resolve")
+def dispute_resolve(
+    dispute_id: str = typer.Argument(
+        ..., help="Object ID of the DisputeRecord to resolve."
+    ),
+    accept: bool = typer.Option(
+        True, "--accept/--reject", help="Accept (mark resolved) or reject the dispute."
+    ),
+) -> None:
+    """Resolve or reject an open dispute (Agent B keypair)."""
+    chain = ChainClient()
+
+    action = "Accept" if accept else "Reject"
+    console.rule(f"[bold cyan]Dispute Resolve — {action}[/bold cyan]")
+    rprint(f"[bold]Dispute ID:[/bold]  {dispute_id}")
+    rprint(f"[bold]Action:[/bold]      {action}")
+    rprint(f"[bold]Using:[/bold]       Agent B ({chain.config.agent_b.address})")
+
+    try:
+        chain.resolve_dispute(dispute_id=dispute_id, accept=accept, agent="b")
+    except ChainError as exc:
+        rprint(f"[red]Chain error (resolve_dispute):[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    new_status = "RESOLVED" if accept else "REJECTED"
+    rprint(f"  [green]:heavy_check_mark:[/green] dispute {dispute_id} → {new_status}")
+
+
+@dispute_app.command("list")
+def dispute_list(
+    page: str = typer.Option(
+        None, "--page", "-p", help="Filter disputes by page slug."
+    ),
+) -> None:
+    """List disputes (optionally filtered by page)."""
+    chain = ChainClient()
+
+    console.rule("[bold cyan]Dispute List[/bold cyan]")
+    try:
+        disputes = chain.list_disputes(page=page)
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if not disputes:
+        rprint("[dim]No disputes found.[/dim]")
+        return
+
+    table = Table(title=f"Disputes{' for ' + page if page else ''}")
+    table.add_column("Dispute ID", style="cyan", no_wrap=True)
+    table.add_column("Page", style="white")
+    table.add_column("Status", style="yellow")
+    table.add_column("Raised By", style="dim")
+
+    STATUS_STYLES = {
+        "open": "[amber]OPEN[/amber]",
+        "resolved": "[green]RESOLVED[/green]",
+        "rejected": "[red]REJECTED[/red]",
+    }
+
+    for d in disputes:
+        short_id = d["dispute_id"][:10] + "..." if len(d["dispute_id"]) > 13 else d["dispute_id"]
+        table.add_row(
+            short_id,
+            d["page"],
+            STATUS_STYLES.get(d["status"], d["status"]),
+            d["raised_by"][:10] + "..." if d["raised_by"] else "-",
+        )
+
+    console.print(table)
 
 
 # ── contributor ────────────────────────────────────────────────────────────────
