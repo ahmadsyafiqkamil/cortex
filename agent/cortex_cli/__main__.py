@@ -5,6 +5,7 @@ Run: `python -m cortex_cli --help`
 Commands:
   llm-smoke  -- Verify LLM config (.env) is working.
   ingest     -- Run the 7-step ingest pipeline on a raw source file.
+  edit       -- Edit a wiki page's content directly.
   query      -- Ask a question and get an answer with provenance citations.
   trace      -- Trace a claim on a wiki page back to its raw source blob.
 """
@@ -13,8 +14,11 @@ from __future__ import annotations
 
 import datetime
 import json
+import os
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import typer
@@ -1249,6 +1253,216 @@ def attest(
         rprint(f"  Explorer:        https://suiscan.xyz/testnet/object/{object_id}")
     if digest:
         rprint(f"  Tx digest:       {digest}")
+
+
+# ── edit ───────────────────────────────────────────────────────────────────────
+
+_FRONTMATTER_RE = re.compile(r"^---\s*\n.*?\n---\s*\n?", re.DOTALL)
+
+
+def _extract_raw_frontmatter(md: str) -> str:
+    """Return the raw frontmatter block (including --- delimiters) or empty string."""
+    match = _FRONTMATTER_RE.match(md)
+    return match.group(0) if match else ""
+
+
+def _editor_edit(content: str) -> str:
+    """Open *content* in $EDITOR (default: vi) and return the edited text."""
+    editor = os.environ.get("EDITOR", "vi")
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False, encoding="utf-8") as fh:
+        fh.write(content)
+        tmp_path = Path(fh.name)
+    try:
+        subprocess.run([editor, str(tmp_path)], check=False)
+        return tmp_path.read_text(encoding="utf-8")
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+def _edit_system_pages(
+    walrus: WalrusClient,
+    chain: ChainClient,
+    slug: str,
+    new_blob_id: str,
+) -> None:
+    """Update _index and _log system pages after a page edit."""
+    today = datetime.date.today().isoformat()
+
+    # ── Update _index: replace or add the line for this slug ──
+    try:
+        idx_r = chain.get_page_record("_index")
+        if idx_r and idx_r.get("latest_blob"):
+            idx_md = walrus.read(idx_r["latest_blob"]).decode("utf-8", errors="replace")
+            fm = _extract_raw_frontmatter(idx_md)
+            body = body_without_frontmatter(idx_md)
+            new_lines: list[str] = []
+            found = False
+            for line in body.splitlines():
+                if f"[[{slug}]]" in line:
+                    new_lines.append(f"- [[{slug}]] — blob: `{new_blob_id}`")
+                    found = True
+                else:
+                    new_lines.append(line)
+            if not found:
+                new_lines.append(f"- [[{slug}]] — blob: `{new_blob_id}`")
+            new_idx = fm + "\n".join(new_lines) + "\n"
+            idx_blob = walrus.store_text(new_idx, name="_index")
+            chain.update_page(
+                slug="_index",
+                new_blob_id=idx_blob,
+                sources_list=idx_r.get("sources", []) or [],
+            )
+            rprint(f"  [green]✓[/green] _index updated")
+    except Exception as exc:
+        rprint(f"  [yellow]Warning: could not update _index: {exc}[/yellow]")
+
+    # ── Update _log: prepend new entry ──
+    try:
+        log_r = chain.get_page_record("_log")
+        if log_r and log_r.get("latest_blob"):
+            log_md = walrus.read(log_r["latest_blob"]).decode("utf-8", errors="replace")
+            fm = _extract_raw_frontmatter(log_md)
+            body = body_without_frontmatter(log_md)
+            entry = f"## {today} — Edit: [[{slug}]]\n\n- new_blob: `{new_blob_id}`\n"
+            new_log = fm + entry + "\n" + body
+            log_blob = walrus.store_text(new_log, name="_log")
+            chain.update_page(
+                slug="_log",
+                new_blob_id=log_blob,
+                sources_list=log_r.get("sources", []) or [],
+            )
+            rprint(f"  [green]✓[/green] _log updated")
+    except Exception as exc:
+        rprint(f"  [yellow]Warning: could not update _log: {exc}[/yellow]")
+
+
+@app.command("edit")
+def edit(
+    slug: str = typer.Argument(..., help="Wiki page slug to edit."),
+    content: str = typer.Option(
+        None, "--content", "-c", help="New page body (inline text; existing frontmatter preserved)."
+    ),
+    file: Path = typer.Option(
+        None, "--file", "-f", help="Path to a markdown file with new content (full, including frontmatter)."
+    ),
+    editor: bool = typer.Option(
+        False, "--editor", "-e", help="Open current content in $EDITOR for interactive editing."
+    ),
+) -> None:
+    """Edit a wiki page's content and update it on-chain.
+
+    Three input modes (choose exactly one):
+
+    \b
+    - --editor / -e  : open current page in $EDITOR (default if no mode given)
+    - --file / -f    : read new content from a markdown file
+    - --content / -c : inline text replaces the body; frontmatter is preserved
+    """
+    modes = sum([content is not None, file is not None, editor])
+    if modes > 1:
+        rprint("[red]Specify exactly one of --content, --file, or --editor.[/red]")
+        raise typer.Exit(code=1)
+    if modes == 0:
+        editor = True
+
+    walrus = WalrusClient()
+    chain = ChainClient()
+
+    console.rule(f"[bold cyan]Cortex Edit — \\[{slug}][/bold cyan]")
+
+    # ── Fetch existing page ──────────────────────────────────────────────────
+    try:
+        record = chain.get_page_record(slug)
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if not record or record.get("deleted"):
+        rprint(f"[red]Page '[cyan]{slug}[/cyan]' not found on-chain.[/red]")
+        raise typer.Exit(code=1)
+
+    old_blob_id = record.get("latest_blob", "")
+    existing_sources = record.get("sources", []) or []
+
+    if not old_blob_id:
+        rprint(f"[red]Page '[cyan]{slug}[/cyan]' has no blob on-chain.[/red]")
+        raise typer.Exit(code=1)
+
+    rprint(f"[dim]Current blob:[/dim] {old_blob_id}")
+
+    # ── Read existing content ────────────────────────────────────────────────
+    try:
+        old_md = walrus.read(old_blob_id).decode("utf-8", errors="replace")
+    except WalrusError as exc:
+        rprint(f"[red]Walrus error reading page blob:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    # ── Get new content ──────────────────────────────────────────────────────
+    if editor:
+        new_md = _editor_edit(old_md)
+        if not new_md.strip():
+            rprint("[yellow]No content — aborting.[/yellow]")
+            raise typer.Exit(code=0)
+        if new_md == old_md:
+            rprint("[yellow]Content unchanged — nothing to do.[/yellow]")
+            raise typer.Exit(code=0)
+    elif file is not None:
+        file = file.resolve()
+        if not file.exists():
+            rprint(f"[red]File not found:[/red] {file}")
+            raise typer.Exit(code=1)
+        new_md = file.read_text(encoding="utf-8")
+    else:
+        old_fm_raw = _extract_raw_frontmatter(old_md)
+        new_body = content.strip()
+        if old_fm_raw:
+            new_md = f"{old_fm_raw}\n{new_body}\n"
+        else:
+            new_md = new_body + "\n"
+
+    rprint(f"  New content: {len(new_md)} chars")
+
+    # ── Store new blob on Walrus ─────────────────────────────────────────────
+    rprint("\n[bold cyan]Storing updated page on Walrus…[/bold cyan]")
+    try:
+        new_blob_id = walrus.store_text(new_md, name=slug)
+    except WalrusError as exc:
+        rprint(f"[red]Walrus error:[/red] {exc}")
+        raise typer.Exit(code=1)
+    rprint(f"  [green]✓[/green] new_blob_id = {new_blob_id}")
+
+    # ── Update on-chain ──────────────────────────────────────────────────────
+    rprint("\n[bold cyan]Updating page on-chain…[/bold cyan]")
+    try:
+        chain.update_page(
+            slug=slug,
+            new_blob_id=new_blob_id,
+            sources_list=existing_sources,
+        )
+        rprint(f"  [green]✓[/green] page '[cyan]{slug}[/cyan]' updated on-chain")
+    except ChainError as exc:
+        rprint(f"[red]Chain error (update_page):[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    # ── Emit links ───────────────────────────────────────────────────────────
+    new_links = extract_wikilinks(new_md)
+    if new_links:
+        rprint(f"\n[bold cyan]Emitting {len(new_links)} link(s)…[/bold cyan]")
+        for to_slug in new_links:
+            try:
+                chain.add_link(from_slug=slug, to_slug=to_slug)
+                rprint(f"  [green]✓[/green] link: {slug} → {to_slug}")
+            except ChainError as exc:
+                rprint(f"  [yellow]Warning:[/yellow] add_link {slug}→{to_slug} failed: {exc}")
+
+    # ── Update system pages ──────────────────────────────────────────────────
+    rprint("\n[bold cyan]Updating system pages (_index, _log)…[/bold cyan]")
+    _edit_system_pages(walrus, chain, slug, new_blob_id)
+
+    console.rule("[bold green]Edit complete[/bold green]")
+    rprint(f"[bold green]✓[/bold green] Page '[[{slug}]]' updated")
+    rprint(f"  Old blob: {old_blob_id}")
+    rprint(f"  New blob: {new_blob_id}")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

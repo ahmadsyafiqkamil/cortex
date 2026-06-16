@@ -53,3 +53,19 @@ export function buildResolveDisputeTx(
     arguments: [contributorCapId, WIKI_ID, disputeId, accept],
   };
 }
+
+export function buildUpdatePageTx(
+  slug: string,
+  newBlobId: string,
+  sourceIds: string[],
+  contributorCapId: string,
+) {
+  if (!PACKAGE_ID || !WIKI_ID || !contributorCapId) return null;
+
+  return {
+    packageId: PACKAGE_ID,
+    module: "wiki",
+    function: "update_page",
+    arguments: [contributorCapId, WIKI_ID, slug, newBlobId, sourceIds, "0x6"],
+  };
+}

@@ -1,15 +1,42 @@
 import { useParams, Link } from "react-router";
-import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy, AlertTriangle, ExternalLink } from "lucide-react";
+import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy, AlertTriangle, ExternalLink, Loader, Save, X } from "lucide-react";
 import { format } from "date-fns";
-import { useState, useEffect, useCallback } from "react";
-import { useSuiClient } from "@mysten/dapp-kit";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useSuiClient,
+  useCurrentAccount,
+  useSignAndExecuteTransaction,
+} from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { pageBySlug } from "../data/mock";
 import { AttestPanel } from "../components/AttestPanel";
 import { DisputePanel } from "../components/DisputePanel";
+import { EditPanel } from "../components/EditPanel";
 import { ResolveDisputeButton } from "../components/ResolveDisputeButton";
-import { PACKAGE_ID } from "../lib/sui";
+import { DisputeDetailModal } from "../components/DisputeDetailModal";
+import { DisputeNotice } from "../components/DisputeNotice";
+import { PACKAGE_ID, WIKI_ID, PUBLISHER_URL } from "../lib/sui";
 
 const BLOB_URL = "https://aggregator.walrus-testnet.walrus.space/v1/blobs";
+
+function parseBlobIdFromResponse(text: string): string | null {
+  try {
+    const data = JSON.parse(text);
+    return (
+      data?.newlyCreated?.blobObject?.blobId
+      || data?.alreadyExists?.blobId
+      || data?.blobId
+      || null
+    );
+  } catch {
+    const m = text.match(/^blob_id=["']?([A-Za-z0-9_-]{10,})/m)
+      || text.match(/"blobId"\s*:\s*"([^"]+)"/);
+    if (m) return m[1];
+    const trimmed = text.trim();
+    if (/^[A-Za-z0-9_-]{10,}$/.test(trimmed)) return trimmed;
+    return null;
+  }
+}
 
 const INLINE_REGEX = /(\^\[blob:[^\]]+\])|(\[\[[^\]]+\]\])/g;
 
@@ -56,26 +83,162 @@ export function PageDetail() {
   const { slug } = useParams();
   const page = slug ? pageBySlug(slug) : undefined;
   const client = useSuiClient();
+  const account = useCurrentAccount();
+  const { mutate: signAndExecute } = useSignAndExecuteTransaction();
 
   const [liveDisputesRaised, setLiveDisputesRaised] = useState<any[]>([]);
+  const [resolvedDisputeIds, setResolvedDisputeIds] = useState<Set<string>>(new Set());
+  const [disputeModalOpen, setDisputeModalOpen] = useState(false);
+
+  const [editing, setEditing] = useState(false);
+  const [editContent, setEditContent] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editTxDigest, setEditTxDigest] = useState("");
+  const [contributorCapId, setContributorCapId] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchLiveDisputes = useCallback(async () => {
     if (!PACKAGE_ID || !slug) return;
     try {
-      const raisedResult = await client.queryEvents({
-        query: { MoveEventType: `${PACKAGE_ID}::dispute::DisputeRaised` },
-        limit: 100,
-        order: "descending" as const,
-      });
+      const [raisedResult, resolvedResult] = await Promise.all([
+        client.queryEvents({
+          query: { MoveEventType: `${PACKAGE_ID}::dispute::DisputeRaised` },
+          limit: 100,
+          order: "descending" as const,
+        }),
+        client.queryEvents({
+          query: { MoveEventType: `${PACKAGE_ID}::dispute::DisputeResolved` },
+          limit: 100,
+          order: "descending" as const,
+        }),
+      ]);
+
       setLiveDisputesRaised(
         (raisedResult?.data ?? [])
           .map((e: any) => e.parsedJson)
           .filter((p: any) => p && p.page === slug)
       );
+
+      const resolvedIds = new Set<string>();
+      (resolvedResult?.data ?? [])
+        .map((e: any) => e.parsedJson)
+        .forEach((p: any) => {
+          if (p.dispute_id) resolvedIds.add(p.dispute_id);
+        });
+      setResolvedDisputeIds(resolvedIds);
     } catch { /* keep prebuilt */ }
   }, [slug, client]);
 
   useEffect(() => { fetchLiveDisputes(); }, [fetchLiveDisputes]);
+
+  const handleStartEdit = async (capId: string) => {
+    if (!page) return;
+    setContributorCapId(capId);
+    setEditError("");
+    setEditTxDigest("");
+    setEditLoading(true);
+    try {
+      const resp = await fetch(`${BLOB_URL}/${page.blobId}`);
+      if (!resp.ok) throw new Error(`Failed to fetch blob: ${resp.status}`);
+      const rawMd = await resp.text();
+      setEditContent(rawMd);
+      setEditing(true);
+    } catch (err: any) {
+      setEditError(err?.message ?? "Failed to load page content");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editContent.trim() || !page) return;
+    setSaving(true);
+    setEditError("");
+
+    try {
+      const resp = await fetch(PUBLISHER_URL, {
+        method: "PUT",
+        body: editContent,
+      });
+      if (!resp.ok) throw new Error(`Walrus upload failed: ${resp.status}`);
+      const respText = await resp.text();
+      const newBlobId = parseBlobIdFromResponse(respText);
+      if (!newBlobId) throw new Error("Could not extract blob_id from response");
+
+      const tx = new Transaction();
+      tx.moveCall({
+        target: `${PACKAGE_ID}::wiki::update_page`,
+        arguments: [
+          tx.object(contributorCapId),
+          tx.object(WIKI_ID),
+          tx.pure.string(slug!),
+          tx.pure.string(newBlobId),
+          tx.pure.vector("string", page.sourceIds ?? []),
+          tx.object("0x6"),
+        ],
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: (result) => {
+            setEditTxDigest(result.digest);
+            setEditing(false);
+            setSaving(false);
+            fetchLiveDisputes();
+          },
+          onError: (err) => {
+            setEditError(err.message);
+            setSaving(false);
+          },
+        }
+      );
+    } catch (err: any) {
+      setEditError(err?.message ?? "Save failed");
+      setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditContent("");
+    setEditError("");
+  };
+
+  const startEditingFromToolbar = async () => {
+    if (!page) return;
+    setEditLoading(true);
+    setEditError("");
+    setEditTxDigest("");
+    try {
+      if (!account) {
+        setEditError("Connect wallet to edit pages");
+        setEditLoading(false);
+        return;
+      }
+      const objs = await client.getOwnedObjects({
+        owner: account.address,
+        filter: { StructType: `${PACKAGE_ID}::wiki::ContributorCap` },
+        options: { showType: true },
+      });
+      if ((objs.data?.length ?? 0) === 0) {
+        setEditError("Requires ContributorCap to edit pages");
+        setEditLoading(false);
+        return;
+      }
+      setContributorCapId(objs.data![0].data?.objectId ?? "");
+      const resp = await fetch(`${BLOB_URL}/${page.blobId}`);
+      if (!resp.ok) throw new Error(`Failed to fetch blob: ${resp.status}`);
+      setEditContent(await resp.text());
+      setEditing(true);
+    } catch (err: any) {
+      setEditError(err?.message ?? "Failed to start editing");
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const mergeDisputes = () => {
     const prebuilt = page?.disputes ?? [];
@@ -84,7 +247,7 @@ export function PageDetail() {
       .filter((lr: any) => !prebuiltIds.has(lr.dispute_id))
       .map((lr: any) => ({
         id: lr.dispute_id,
-        status: "open" as const,
+        status: resolvedDisputeIds.has(lr.dispute_id) ? "resolved" as const : "open" as const,
         raisedBy: lr.raised_by,
         counterSource: "",
         rationale: lr.reason_blob ?? "",
@@ -157,30 +320,104 @@ export function PageDetail() {
           <div className="border-b border-amber-500/50 bg-amber-500/5 px-8 py-3 flex items-center gap-2 font-mono text-xs uppercase">
             <AlertTriangle className="w-4 h-4 text-amber-500" />
             <span className="text-amber-400 font-bold">{mergedDisputes.filter(d => d.status === "open").length} OPEN DISPUTE(S)</span>
-            <a href="#disputes" className="text-amber-500 hover:text-amber-300 ml-auto">→ VIEW</a>
+            <button onClick={() => setDisputeModalOpen(true)} className="text-amber-500 hover:text-amber-300 ml-auto">→ VIEW</button>
           </div>
         )}
 
         {/* Toolbar */}
         <div className="border-b border-zinc-800 px-8 py-3 flex items-center justify-between bg-[#020202] sticky top-0 z-10">
           <div className="flex items-center gap-4 text-sm font-mono uppercase font-bold">
-            <button className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-              <Edit3 className="w-4 h-4" />
-              PROPOSE_EDIT
-            </button>
-            <button className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
-              <Share2 className="w-4 h-4" />
-              SHARE
-            </button>
+            {editing ? (
+              <>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors disabled:text-zinc-600 disabled:cursor-not-allowed"
+                >
+                  {saving ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  SAVE
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors disabled:text-zinc-600"
+                >
+                  <X className="w-4 h-4" />
+                  CANCEL
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={startEditingFromToolbar}
+                  disabled={editLoading}
+                  className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors disabled:text-zinc-600"
+                >
+                  {editLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Edit3 className="w-4 h-4" />}
+                  PROPOSE_EDIT
+                </button>
+                <button className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
+                  <Share2 className="w-4 h-4" />
+                  SHARE
+                </button>
+              </>
+            )}
           </div>
           <div className="font-mono text-[10px] text-zinc-500 uppercase hidden sm:block">
-            BLOB_ID: {page.blobId.slice(0, 12)}...
+            {editing ? (
+              <span className="text-amber-400">EDITING_MODE</span>
+            ) : (
+              <>BLOB_ID: {page.blobId.slice(0, 12)}...</>
+            )}
           </div>
         </div>
 
+        {/* Dispute Rationale */}
+        {hasOpenDispute && (
+          <DisputeNotice disputes={mergedDisputes.filter(d => d.status === "open")} />
+        )}
+
         {/* Article Body */}
-        <div className="p-8 lg:p-12 prose prose-invert max-w-none prose-p:leading-relaxed prose-p:text-zinc-300 prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-a:text-white prose-a:underline prose-a:underline-offset-4 prose-a:decoration-zinc-700 hover:prose-a:decoration-white font-sans bg-[#020202]">
-          {page.content ? page.content.split('\n\n').map((paragraph, idx) => {
+        {editing ? (
+          <div className="p-8 lg:p-12 bg-[#020202] flex flex-col gap-4">
+            {editError && (
+              <div className="border border-red-800 bg-red-950/30 p-3 font-mono text-xs text-red-400 uppercase">
+                ERROR: {editError}
+              </div>
+            )}
+            {editTxDigest ? (
+              <div className="border border-green-800 bg-green-950/30 p-3 font-mono text-xs text-green-400 flex flex-col gap-1">
+                <span className="uppercase font-bold">PAGE_UPDATED</span>
+                <span>TX: {editTxDigest}</span>
+                <a
+                  href={`https://suiscan.xyz/testnet/tx/${editTxDigest}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-500 hover:text-green-300 underline"
+                >
+                  VIEW_ON_SUISCAN
+                </a>
+              </div>
+            ) : (
+              <textarea
+                ref={textareaRef}
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                disabled={saving}
+                className="w-full min-h-[500px] bg-black border border-zinc-700 text-zinc-300 font-mono text-sm p-6 resize-y focus:outline-none focus:border-white disabled:opacity-50 leading-relaxed"
+                placeholder="Loading page content..."
+                spellCheck={false}
+              />
+            )}
+            {saving && (
+              <p className="font-mono text-[10px] text-amber-400 animate-pulse uppercase">
+                SAVING_TO_WALRUS_AND_UPDATING_ON_CHAIN...
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="p-8 lg:p-12 prose prose-invert max-w-none prose-p:leading-relaxed prose-p:text-zinc-300 prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-a:text-white prose-a:underline prose-a:underline-offset-4 prose-a:decoration-zinc-700 hover:prose-a:decoration-white font-sans bg-[#020202]">
+            {page.content ? page.content.split('\n\n').map((paragraph, idx) => {
             if (paragraph.startsWith('###')) {
               return <h3 key={idx} className="text-2xl mt-12 mb-6 border-b-2 border-white pb-2 inline-block uppercase tracking-tight">{paragraph.replace('### ', '')}</h3>;
             }
@@ -226,6 +463,7 @@ export function PageDetail() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Sidebar: Provenance & History */}
@@ -353,6 +591,11 @@ export function PageDetail() {
           </button>
         </div>
 
+        <EditPanel
+          onEditStart={handleStartEdit}
+          disabled={editing}
+        />
+
         <AttestPanel
           pageSlug={page.slug}
           sourceCount={page.sourceIds.length}
@@ -362,6 +605,12 @@ export function PageDetail() {
         <DisputePanel pageSlug={page.slug} />
       </div>
 
+      <DisputeDetailModal
+        disputes={mergedDisputes.filter(d => d.status === "open")}
+        open={disputeModalOpen}
+        onClose={() => setDisputeModalOpen(false)}
+        onResolved={() => fetchLiveDisputes()}
+      />
     </div>
   );
 }
