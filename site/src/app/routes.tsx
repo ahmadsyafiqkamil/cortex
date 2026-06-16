@@ -1,9 +1,10 @@
-import { createBrowserRouter, useRouteError } from "react-router";
+import { createHashRouter, useRouteError } from "react-router";
 import { Layout } from "./components/Layout";
 import { Landing } from "./pages/Landing";
 import { Home } from "./pages/Home";
 import { PageDetail } from "./pages/PageDetail";
 import { GraphView } from "./pages/GraphView";
+import { SourcesScreen } from "./pages/SourcesScreen";
 
 function ErrorBoundary() {
   const error = useRouteError() as any;
@@ -16,20 +17,21 @@ function ErrorBoundary() {
   );
 }
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: "/",
     Component: Landing,
-    ErrorBoundary: ErrorBoundary,
+    ErrorBoundary,
   },
   {
     path: "/app",
     Component: Layout,
-    ErrorBoundary: ErrorBoundary,
+    ErrorBoundary,
     children: [
       { index: true, Component: Home },
-      { path: "wiki/:id", Component: PageDetail },
+      { path: "wiki/:slug", Component: PageDetail },
       { path: "graph", Component: GraphView },
+      { path: "sources", Component: SourcesScreen },
     ],
   },
   {

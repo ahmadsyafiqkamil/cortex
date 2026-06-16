@@ -460,6 +460,24 @@ class ChainClient:
             gas_budget=gas_budget,
         )
 
+    def attest_provenance(
+        self,
+        page: str,
+        page_blob: str,
+        agent: str = "a",
+        gas_budget: int = 10_000_000,
+    ) -> dict:
+        """Call attest::attest_provenance — open to any address, no cap required."""
+        wiki = self.config.wiki_id
+        if not wiki:
+            raise ChainError("wiki_id missing from config.json")
+        return self.call_move(
+            module="attest",
+            function="attest_provenance",
+            args=[wiki, page, page_blob],
+            gas_budget=gas_budget,
+        )
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

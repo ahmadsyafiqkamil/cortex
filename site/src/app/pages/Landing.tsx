@@ -30,7 +30,7 @@ export function Landing() {
         <section className="flex flex-col lg:flex-row border-b-2 border-zinc-800 min-h-[70vh]">
           <div className="flex-1 p-8 lg:p-16 flex flex-col justify-center border-b-2 lg:border-b-0 lg:border-r-2 border-zinc-800">
             <div className="inline-block border-2 border-white px-3 py-1 font-mono text-xs font-bold uppercase text-white w-fit mb-8">
-              v1.0.0-beta / Sui Mainnet
+              v1.0.0-beta / Sui Testnet
             </div>
             <h1 className="text-6xl lg:text-8xl xl:text-[10rem] font-bold text-white tracking-tighter leading-none mb-8">
               KNOWLEDGE<br />
@@ -68,7 +68,7 @@ export function Landing() {
                 cortex-daemon
               </div>
               <div className="p-6 font-mono text-sm text-zinc-400 flex flex-col gap-2 h-[300px] overflow-hidden">
-                <p><span className="text-white">$</span> cortex init --network sui-mainnet</p>
+                <p><span className="text-white">$</span> cortex init --network sui-testnet</p>
                 <p className="text-zinc-500">Initializing node connection...</p>
                 <p className="text-white">✓ Connected to Sui RPC (34ms)</p>
                 <p><span className="text-white">$</span> cortex sync walrus --epoch 512</p>

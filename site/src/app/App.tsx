@@ -1,18 +1,23 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
-import { useRouteError } from "react-router";
+import { SuiClientProvider, WalletProvider, createNetworkConfig } from "@mysten/dapp-kit";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "@mysten/dapp-kit/dist/index.css";
 
-function GlobalErrorBoundary() {
-  const error = useRouteError() as any;
-  return (
-    <div style={{ padding: 20, color: 'red', backgroundColor: 'black', minHeight: '100vh', fontFamily: 'monospace' }}>
-      <h2>Application Error</h2>
-      <pre>{error?.message || String(error)}</pre>
-      <pre>{error?.stack}</pre>
-    </div>
-  );
-}
+const { networkConfig } = createNetworkConfig({
+  testnet: { url: "https://fullnode.testnet.sui.io:443" },
+});
+
+const queryClient = new QueryClient();
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
+        <WalletProvider autoConnect>
+          <RouterProvider router={router} />
+        </WalletProvider>
+      </SuiClientProvider>
+    </QueryClientProvider>
+  );
 }

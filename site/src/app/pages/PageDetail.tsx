@@ -1,52 +1,37 @@
 import { useParams, Link } from "react-router";
-import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy } from "lucide-react";
+import { GitCommit, ShieldCheck, History, Edit3, Share2, Tag, Copy, AlertTriangle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
-
-const MOCK_WIKI = {
-  "sui-consensus": {
-    title: "Sui Consensus Engine",
-    content: `
-The Sui Consensus Engine represents a paradigm shift in decentralized state replication. Unlike traditional blockchain architectures that rely on global consensus for all transactions, Sui introduces an object-centric model.
-
-### Object-Centric Architecture
-
-At the core of Sui's design is the concept of independent objects. Transactions that do not have overlapping objects can be processed entirely in parallel. This bypasses the traditional mempool and consensus bottleneck, allowing for unbounded horizontal scaling.
-
-When a transaction only involves owned objects (e.g., a simple token transfer), it uses a fast-path mechanism based on Byzantine Consistent Broadcast (FastPay). This allows the transaction to complete in milliseconds.
-
-### Bullshark and Narwhal
-
-For complex transactions involving shared objects (e.g., interacting with a decentralized exchange smart contract), Sui employs a Directed Acyclic Graph (DAG) based mempool (Narwhal) and a consensus protocol (Bullshark).
-
-Narwhal ensures the availability of data, while Bullshark orders the data to achieve consensus. This separation of concerns significantly increases throughput compared to monolithic consensus engines.
-
-### Cryptographic Provenance
-
-Every state transition in the Sui network is cryptographically signed and stored immutably. In the context of the Cortex knowledge base, this ensures that every edit, revision, and addition to a document can be independently verified against the on-chain history.
-
-The Walrus storage layer handles the heavy lifting of storing the blob data for the document's content, while the Sui blockchain maintains the pointers and the chronological, verifiable history of the document's evolution.
-    `,
-    tags: ["consensus", "architecture", "sui-core"],
-    versions: [
-      { hash: "0x8a7b...1f2c", date: new Date(Date.now() - 1000 * 60 * 5), author: "0x7F...3B", message: "Update Bullshark details" },
-      { hash: "0x5c4d...9e0a", date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), author: "0x1A...9C", message: "Add FastPay references" },
-      { hash: "0x2b1a...8d7e", date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), author: "0x99...2A", message: "Initial document creation" },
-    ],
-    blobId: "blob_5R9...xY2",
-    objectId: "0x1122...aabb",
-  }
-};
+import { pages, pageBySlug } from "../data/mock";
+import { AttestPanel } from "../components/AttestPanel";
 
 export function PageDetail() {
-  const { id } = useParams();
-  const page = MOCK_WIKI[id as keyof typeof MOCK_WIKI] || MOCK_WIKI["sui-consensus"];
+  const { slug } = useParams();
+  const page = slug ? pageBySlug(slug) : undefined;
+
+  if (!page) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-[#020202]">
+        <div className="text-center p-12">
+          <div className="font-mono text-xs text-zinc-500 uppercase tracking-widest mb-4">404_PAGE_NOT_FOUND</div>
+          <h2 className="text-2xl font-bold text-white mb-4 font-mono uppercase tracking-tighter">
+            {(slug || "UNKNOWN").replace(/-/g, "_")}
+          </h2>
+          <Link to="/app" className="font-mono text-xs text-zinc-400 hover:text-white border border-zinc-800 hover:border-white px-6 py-3 uppercase transition-colors inline-block">
+            RETURN_TO_INDEX
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const hasOpenDispute = page.disputes.some((d) => d.status === "open");
 
   return (
     <div className="flex-1 flex flex-col lg:flex-row w-full max-w-[1600px] mx-auto border-l border-r border-zinc-800">
-      
+
       {/* Main Content */}
       <div className="flex-[3] flex flex-col border-r border-zinc-800 min-h-0 bg-[#050505]">
-        
+
         {/* Document Header */}
         <div className="border-b border-zinc-800 p-8 lg:p-12 pb-8 bg-[#020202]">
           <div className="flex items-center gap-3 mb-6">
@@ -57,26 +42,41 @@ export function PageDetail() {
               </span>
             ))}
           </div>
-          
+
           <h1 className="text-4xl lg:text-6xl font-bold text-white tracking-tighter mb-4 font-sans">
             {page.title}
           </h1>
-          
-          <div className="flex items-center gap-6 font-mono text-xs text-zinc-500 mt-8 uppercase font-bold">
+
+          <div className="flex items-center gap-6 font-mono text-xs text-zinc-500 mt-8 uppercase font-bold flex-wrap">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-white" />
-              <span className="text-white">ON-CHAIN VERIFIED</span>
+              <span className="text-white">PROVENANCE_VERIFIED</span>
             </div>
             <div className="flex items-center gap-2 border-l border-zinc-800 pl-6">
-              <span>OBJECT:</span>
-              <span className="text-zinc-300">{page.objectId}</span>
-              <button className="hover:text-white transition-colors"><Copy className="w-3 h-3" /></button>
+              <span>BLOB:</span>
+              <span className="text-zinc-300 truncate max-w-[160px]">{page.blobId.slice(0, 20)}...</span>
+              <button className="hover:text-white transition-colors" onClick={() => navigator.clipboard.writeText(page.blobId)}><Copy className="w-3 h-3" /></button>
             </div>
+            {page.objectId && (
+              <div className="flex items-center gap-2 border-l border-zinc-800 pl-6">
+                <span>OBJECT:</span>
+                <span className="text-zinc-300 truncate max-w-[160px]">{page.objectId}</span>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Dispute Banner */}
+        {hasOpenDispute && (
+          <div className="border-b border-amber-500/50 bg-amber-500/5 px-8 py-3 flex items-center gap-2 font-mono text-xs uppercase">
+            <AlertTriangle className="w-4 h-4 text-amber-500" />
+            <span className="text-amber-400 font-bold">{page.disputes.filter(d => d.status === "open").length} OPEN DISPUTE(S)</span>
+            <a href="#disputes" className="text-amber-500 hover:text-amber-300 ml-auto">→ VIEW</a>
+          </div>
+        )}
+
         {/* Toolbar */}
-        <div className="border-b border-zinc-800 px-8 py-3 flex items-center justify-between bg-[#020202] sticky top-0 backdrop-blur-none z-10">
+        <div className="border-b border-zinc-800 px-8 py-3 flex items-center justify-between bg-[#020202] sticky top-0 z-10">
           <div className="flex items-center gap-4 text-sm font-mono uppercase font-bold">
             <button className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
               <Edit3 className="w-4 h-4" />
@@ -87,25 +87,64 @@ export function PageDetail() {
               SHARE
             </button>
           </div>
-          <div className="font-mono text-[10px] text-zinc-500 uppercase">
-            BLOB_ID: {page.blobId}
+          <div className="font-mono text-[10px] text-zinc-500 uppercase hidden sm:block">
+            BLOB_ID: {page.blobId.slice(0, 12)}...
           </div>
         </div>
 
         {/* Article Body */}
         <div className="p-8 lg:p-12 prose prose-invert max-w-none prose-p:leading-relaxed prose-p:text-zinc-300 prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-a:text-white prose-a:underline prose-a:underline-offset-4 prose-a:decoration-zinc-700 hover:prose-a:decoration-white font-sans bg-[#020202]">
-          {page.content.split('\n\n').map((paragraph, idx) => {
+          {page.content ? page.content.split('\n\n').map((paragraph, idx) => {
             if (paragraph.startsWith('###')) {
               return <h3 key={idx} className="text-2xl mt-12 mb-6 border-b-2 border-white pb-2 inline-block uppercase tracking-tight">{paragraph.replace('### ', '')}</h3>;
             }
+            if (paragraph.startsWith('##')) {
+              return <h2 key={idx} className="text-3xl mt-14 mb-8 border-b-2 border-white pb-3 uppercase tracking-tighter font-bold">{paragraph.replace('## ', '')}</h2>;
+            }
+            if (paragraph.startsWith('# ')) {
+              return <h2 key={idx} className="text-3xl mt-14 mb-8 border-b-2 border-white pb-3 uppercase tracking-tighter font-bold">{paragraph.replace('# ', '')}</h2>;
+            }
+            if (paragraph.startsWith('- ')) {
+              const items = paragraph.split('\n').filter(l => l.startsWith('- '));
+              return (
+                <ul key={idx} className="list-disc list-inside mb-6 space-y-2">
+                  {items.map((item, i2) => (
+                    <li key={i2} className="text-lg text-zinc-300">{item.replace('- ', '')}</li>
+                  ))}
+                </ul>
+              );
+            }
+            if (paragraph.startsWith('> ')) {
+              return (
+                <blockquote key={idx} className="border-l-2 border-white pl-4 py-2 mb-6 italic text-zinc-400">
+                  {paragraph.replace(/^> /gm, '')}
+                </blockquote>
+              );
+            }
+            if (paragraph.startsWith('```')) {
+              const lines = paragraph.split('\n');
+              const code = lines.slice(1, -1).join('\n');
+              return (
+                <pre key={idx} className="border border-zinc-800 bg-black p-4 mb-6 overflow-x-auto font-mono text-xs text-zinc-300">
+                  <code>{code}</code>
+                </pre>
+              );
+            }
+            if (paragraph.startsWith('[') && paragraph.includes(']: ')) {
+              return null;
+            }
             return <p key={idx} className="mb-6 text-lg">{paragraph}</p>;
-          })}
+          }) : (
+            <div className="text-center p-12 font-mono text-xs text-zinc-500 uppercase">
+              // NO_CONTENT
+            </div>
+          )}
         </div>
       </div>
 
       {/* Sidebar: Provenance & History */}
       <div className="flex-1 flex flex-col bg-[#020202] min-w-[320px] border-l border-zinc-800">
-        
+
         <div className="border-b border-zinc-800 p-4 bg-zinc-900/50">
           <h3 className="font-mono text-xs text-white tracking-widest flex items-center gap-2 uppercase font-bold">
             <History className="w-4 h-4 text-white" />
@@ -116,49 +155,105 @@ export function PageDetail() {
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
           <div className="relative">
             <div className="absolute top-2 bottom-2 left-[11px] w-px bg-zinc-800" />
-            
+
             {page.versions.map((v, i) => (
               <div key={v.hash} className="relative pl-8 pb-6 last:pb-0 group">
                 <div className={`absolute left-0 top-1 w-6 h-6 rounded-none flex items-center justify-center bg-[#020202] border transition-colors ${i === 0 ? 'border-white text-white' : 'border-zinc-800 text-zinc-600 group-hover:border-zinc-500 group-hover:text-white'}`}>
                   <GitCommit className="w-3 h-3" />
                 </div>
-                
+
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-white font-bold">{v.hash}</span>
+                    <span className="font-mono text-xs text-white font-bold truncate max-w-[100px]">{v.hash.slice(0, 10)}...</span>
                     <span className="font-mono text-[10px] text-zinc-500 uppercase">
-                      {format(v.date, 'MMM dd, yyyy')}
+                      {format(new Date(v.date), 'MMM dd, yyyy')}
                     </span>
                   </div>
                   <div className="text-sm text-zinc-400 mt-1 font-sans">
                     {v.message}
                   </div>
-                  <div className="font-mono text-[10px] text-zinc-500 mt-2 flex items-center gap-2 uppercase">
-                    <span className="border border-zinc-800 px-1.5 py-0.5">AUTHOR: {v.author}</span>
-                    {i === 0 && <span className="bg-white text-black font-bold px-1.5 py-0.5">LATEST</span>}
-                  </div>
+                  {v.author && (
+                    <div className="font-mono text-[10px] text-zinc-500 mt-2 flex items-center gap-2 uppercase">
+                      <span className="border border-zinc-800 px-1.5 py-0.5 truncate max-w-[140px]">AUTHOR: {v.author}</span>
+                      {i === 0 && <span className="bg-white text-black font-bold px-1.5 py-0.5">LATEST</span>}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Disputes in sidebar */}
+          {page.disputes.length > 0 && (
+            <div id="disputes" className="border-t border-zinc-800 pt-4">
+              <h4 className="font-mono text-[10px] text-amber-400 font-bold uppercase tracking-widest mb-3">
+                ACTIVE_DISPUTES
+              </h4>
+              {page.disputes.map(d => (
+                <div key={d.id} className="border border-zinc-800 p-3 mb-2 bg-zinc-900/30">
+                  <div className="font-mono text-xs text-white font-bold mb-1">
+                    {d.status === "open" ? "OPEN" : "RESOLVED"}
+                  </div>
+                  <div className="font-mono text-[10px] text-zinc-400 mb-2">
+                    RAISED_BY: {d.raisedBy.slice(0, 16)}...
+                  </div>
+                  {d.counterSource && (
+                    <div className="font-mono text-[10px] text-zinc-500 truncate">
+                      COUNTER: {d.counterSource.slice(0, 16)}...
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Sources sidebar */}
+        {page.sourceIds.length > 0 && (
+          <div className="border-t border-zinc-800 p-4 bg-zinc-900/20 flex flex-col gap-2">
+            <h4 className="font-mono text-[10px] text-white font-bold uppercase tracking-widest">SOURCES</h4>
+            {page.sourceIds.map((sid, i) => (
+              <a
+                key={sid}
+                href={`https://aggregator.walrus-testnet.walrus.space/v1/blobs/${sid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs font-mono text-zinc-400 hover:text-white transition-colors"
+              >
+                <span className="text-zinc-600">{String(i + 1).padStart(2, '0')}.</span>
+                <span className="truncate max-w-[180px]">{sid}</span>
+                <ExternalLink className="w-3 h-3 text-zinc-600 flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        )}
 
         <div className="border-t border-zinc-800 p-4 bg-zinc-900/50 flex flex-col gap-3">
           <h4 className="font-mono text-[10px] text-white font-bold uppercase tracking-widest">NETWORK_VALIDATION</h4>
           <div className="flex items-center justify-between text-xs font-mono uppercase">
-            <span className="text-zinc-500">Sui Epoch:</span>
-            <span className="text-white font-bold">512</span>
+            <span className="text-zinc-500">Sui Network:</span>
+            <span className="text-white font-bold">TESTNET</span>
           </div>
           <div className="flex items-center justify-between text-xs font-mono uppercase">
-            <span className="text-zinc-500">Walrus Replicas:</span>
-            <span className="text-white font-bold">99/100</span>
+            <span className="text-zinc-500">Versions:</span>
+            <span className="text-white font-bold">{page.versions.length}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-mono uppercase">
+            <span className="text-zinc-500">Sources:</span>
+            <span className="text-white font-bold">{page.sourceIds.length}</span>
           </div>
           <button className="w-full mt-4 py-3 border border-white hover:bg-white hover:text-black text-xs font-mono font-bold transition-colors text-white uppercase tracking-wider">
-            VIEW_RAW_TRANSACTION
+            VIEW_BLOB_ON_WALRUS
           </button>
         </div>
+
+        <AttestPanel
+          pageSlug={page.slug}
+          sourceCount={page.sourceIds.length}
+          hasOpenDispute={hasOpenDispute}
+        />
       </div>
-      
+
     </div>
   );
 }

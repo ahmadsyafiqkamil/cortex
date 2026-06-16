@@ -54,7 +54,7 @@ export function Layout() {
             <div className="flex flex-col items-end gap-0.5 font-mono text-[10px] uppercase">
               <div className="flex items-center gap-1.5 text-zinc-400">
                 <div className="w-1.5 h-1.5 rounded-none bg-white" />
-                SUI MAINNET
+                SUI TESTNET
               </div>
               <div className="text-zinc-600">WALRUS SYNC: OK</div>
             </div>

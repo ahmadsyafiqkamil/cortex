@@ -876,6 +876,76 @@ def dispute(
         rprint(f"  Rationale:      {rationale_blob}")
 
 
+# ── attest ────────────────────────────────────────────────────────────────────
+
+@app.command("attest")
+def attest(
+    slug: str = typer.Argument(..., help="Wiki page slug to attest provenance for."),
+    agent: str = typer.Option(
+        "a", "--agent", "-a", help="Which agent keypair to use ('a' or 'b'). Default 'a'."
+    ),
+) -> None:
+    """Attest that a wiki page's provenance is verified on-chain.
+
+    Creates a ProvenanceAttestation object on Sui — open to any address,
+    no ContributorCap required. The active Sui address signs the transaction.
+    """
+    chain = ChainClient()
+
+    console.rule(f"[bold cyan]Cortex Attest — \\[{slug}][/bold cyan]")
+
+    # ── Fetch page record ─────────────────────────────────────────────────────
+    try:
+        record = chain.get_page_record(slug)
+    except ChainError as exc:
+        rprint(f"[red]Chain error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if not record:
+        rprint(f"[red]Page '[cyan]{slug}[/cyan]' not found on-chain.[/red]")
+        raise typer.Exit(code=1)
+
+    page_blob = record.get("latest_blob", "")
+    if not page_blob:
+        rprint(f"[red]Page '[cyan]{slug}[/cyan]' has no blob on-chain.[/red]")
+        raise typer.Exit(code=1)
+
+    rprint(f"[bold]Page:[/bold]      {slug}")
+    rprint(f"[bold]Blob:[/bold]      [yellow]{page_blob}[/yellow]")
+    rprint(f"[bold]Using:[/bold]     Agent {agent.upper()}")
+
+    # ── Attest ────────────────────────────────────────────────────────────────
+    rprint("\n[bold cyan]Attesting provenance on-chain…[/bold cyan]")
+    try:
+        result = chain.attest_provenance(
+            page=slug,
+            page_blob=page_blob,
+            agent=agent,
+        )
+    except ChainError as exc:
+        rprint(f"[red]Chain error (attest):[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    console.rule("[bold green]Attestation complete[/bold green]")
+
+    # Extract object ID and digest from result
+    object_id = ""
+    digest = result.get("digest", "") if isinstance(result, dict) else ""
+
+    if isinstance(result, dict):
+        for change in result.get("objectChanges", []):
+            if change.get("type") == "created":
+                object_id = change.get("objectId", "")
+                break
+
+    rprint(f"[bold green]:heavy_check_mark:[/bold green] Provenance attested for '[[{slug}]]'")
+    if object_id:
+        rprint(f"  Attestation ID:  {object_id}")
+        rprint(f"  Explorer:        https://suiscan.xyz/testnet/object/{object_id}")
+    if digest:
+        rprint(f"  Tx digest:       {digest}")
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _parse_prompt(template: str, variables: dict[str, str]) -> dict:

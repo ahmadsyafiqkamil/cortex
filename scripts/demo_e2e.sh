@@ -4,7 +4,8 @@
 # Flow:
 #   Agent A (ingest):     `cortex ingest` a raw source
 #   Agent B / read-only:  `cortex lint`   checks wiki quality
-#   Agent B (dispute):    `cortex dispute raise` files a counter-source dispute
+#   Agent B (dispute):    `cortex dispute` files a counter-source dispute
+#   Agent B (attest):     `cortex attest`  attests provenance on-chain
 #   Read-only:            `cortex query`   verifies answers with citations
 #
 # Usage: bash scripts/demo_e2e.sh
@@ -158,7 +159,7 @@ sui client switch --address "$AGENT_B" 2>/dev/null || \
     sui client new-env --alias cortex-b --rpc https://fullnode.testnet.sui.io:443 2>/dev/null || true
 sui client active-address
 
-if python3 -m cortex_cli dispute raise \
+if python3 -m cortex_cli dispute \
     --page "$DISPUTE_PAGE" \
     --counter-source "$COUNTER_SOURCE" \
     --title "Counter-source for $DISPUTE_PAGE" \
@@ -169,9 +170,20 @@ else
     exit 1
 fi
 
-# ── Step 4: Query — Verify answers with citations ─────────────────────────────
+# ── Step 4: Attest — Provenance attestation on-chain ───────────────────────
 
-_step "Step 4: Query — Verify answers with provenance citations"
+_step "Step 4: Agent B — Attest provenance"
+
+if python3 -m cortex_cli attest "$DISPUTE_PAGE" --agent b; then
+    _pass "Attestation submitted for [[$DISPUTE_PAGE]]"
+else
+    _fail "Attestation failed"
+    exit 1
+fi
+
+# ── Step 5: Query — Verify answers with citations ─────────────────────────────
+
+_step "Step 5: Query — Verify answers with provenance citations"
 
 set +e
 QUERY_OUTPUT=$(python3 -m cortex_cli query "Apa prosedur yang dijelaskan dalam sumber?" 2>&1)
@@ -197,6 +209,7 @@ echo ""
 echo "  Agent A (ingest):   :heavy_check_mark:"
 echo "  Lint (read-only):   :heavy_check_mark:"
 echo "  Agent B (dispute):  :heavy_check_mark:"
+echo "  Agent B (attest):   :heavy_check_mark:"
 echo "  Query (citations):  :heavy_check_mark:"
 echo ""
 

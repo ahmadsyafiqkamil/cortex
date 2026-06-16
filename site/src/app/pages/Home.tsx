@@ -1,43 +1,44 @@
 import { Link } from "react-router";
 import { ArrowRight, Clock, FileText, Activity, Hash, Layers } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { pages } from "../data/mock";
 
-const RECENT_PAGES = [
-  { id: "sui-consensus", title: "Sui Consensus Engine", author: "0x7F...3B", timestamp: new Date(Date.now() - 1000 * 60 * 5) },
-  { id: "walrus-storage", title: "Walrus Blob Storage Architecture", author: "0x1A...9C", timestamp: new Date(Date.now() - 1000 * 60 * 45) },
-  { id: "move-patterns", title: "Move Language Design Patterns", author: "0x99...2A", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2) },
-  { id: "zero-knowledge", title: "ZK Proofs in Cortex", author: "0x4D...EF", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5) },
-  { id: "tokenomics", title: "Ecosystem Tokenomics Draft", author: "0x2B...11", timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) },
-];
+const recentPages = [...pages]
+  .sort((a, b) => {
+    const aDate = a.versions[0]?.date ? new Date(a.versions[0].date).getTime() : 0;
+    const bDate = b.versions[0]?.date ? new Date(b.versions[0].date).getTime() : 0;
+    return bDate - aDate;
+  })
+  .slice(0, 8);
 
 const SYSTEM_STATS = [
-  { label: "TOTAL_NODES", value: "14,203", icon: <Layers className="w-4 h-4" /> },
-  { label: "STORAGE_EPOCH", value: "E-492", icon: <Clock className="w-4 h-4" /> },
-  { label: "BLOB_SIZE", value: "2.4 TB", icon: <FileText className="w-4 h-4" /> },
-  { label: "TPS", value: "12,400", icon: <Activity className="w-4 h-4" /> },
+  { label: "TOTAL_PAGES", value: pages.length.toString(), icon: <Layers className="w-4 h-4" /> },
+  { label: "SOURCES", value: String(new Set(pages.flatMap(p => p.sourceIds)).size), icon: <FileText className="w-4 h-4" /> },
+  { label: "DISPUTES", value: String(pages.reduce((acc, p) => acc + p.disputes.filter(d => d.status === "open").length, 0)), icon: <Activity className="w-4 h-4" /> },
+  { label: "LINKS", value: String(pages.reduce((acc, p) => acc + p.links.length, 0)), icon: <Hash className="w-4 h-4" /> },
 ];
 
 export function Home() {
   return (
     <div className="flex-1 flex p-6 max-w-[1400px] mx-auto w-full gap-6">
-      
+
       {/* Left Column: Recent Updates */}
       <div className="flex-[2] flex flex-col gap-6">
         <div className="border border-zinc-800 bg-[#020202] flex flex-col">
           <div className="border-b border-zinc-800 px-4 py-3 flex items-center justify-between bg-zinc-900/50">
             <h2 className="font-mono text-xs text-white tracking-widest flex items-center gap-2 uppercase font-bold">
               <span className="w-2 h-2 bg-white" />
-              LATEST_MUTATIONS
+              ALL_PAGES
             </h2>
-            <span className="font-mono text-[10px] text-zinc-500 uppercase">SORT: TIMESTAMP_DESC</span>
+            <span className="font-mono text-[10px] text-zinc-500 uppercase">COUNT: {pages.length}</span>
           </div>
-          
+
           <div className="flex flex-col">
-            {RECENT_PAGES.map((page, i) => (
-              <Link 
-                key={page.id} 
-                to={`/app/wiki/${page.id}`}
-                className={`group flex items-center justify-between px-4 py-4 hover:bg-white hover:text-black transition-colors ${i !== RECENT_PAGES.length - 1 ? 'border-b border-zinc-800' : ''}`}
+            {recentPages.length > 0 ? recentPages.map((page, i) => (
+              <Link
+                key={page.slug}
+                to={`/app/wiki/${page.slug}`}
+                className={`group flex items-center justify-between px-4 py-4 hover:bg-white hover:text-black transition-colors ${i !== recentPages.length - 1 ? 'border-b border-zinc-800' : ''}`}
               >
                 <div className="flex items-start gap-4">
                   <div className="font-mono text-xs text-zinc-600 mt-0.5 group-hover:text-black transition-colors">
@@ -50,18 +51,34 @@ export function Home() {
                     <div className="flex items-center gap-3 mt-1.5 font-mono text-[10px] text-zinc-500 group-hover:text-black/70 transition-colors uppercase">
                       <span className="flex items-center gap-1">
                         <Hash className="w-3 h-3" />
-                        {page.author}
+                        {page.slug}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {formatDistanceToNow(page.timestamp)} ago
-                      </span>
+                      {page.versions[0]?.date && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDistanceToNow(new Date(page.versions[0].date))} ago
+                        </span>
+                      )}
+                      {page.versions.length > 0 && (
+                        <span>{page.versions.length} versions</span>
+                      )}
                     </div>
+                    {page.disputes.length > 0 && (
+                      <div className="mt-1">
+                        <span className="font-mono text-[10px] text-amber-500 uppercase font-bold">
+                          {page.disputes.filter(d => d.status === "open").length} OPEN DISPUTES
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <ArrowRight className="w-5 h-5 text-zinc-700 group-hover:text-black transition-colors" />
               </Link>
-            ))}
+            )) : (
+              <div className="p-8 text-center font-mono text-xs text-zinc-500 uppercase">
+                NO_PAGES_INDEXED
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -94,18 +111,16 @@ export function Home() {
           <div className="border-b border-zinc-800 px-4 py-3 bg-zinc-900/50">
             <h2 className="font-mono text-xs text-white tracking-widest flex items-center gap-2 uppercase font-bold">
               <span className="w-2 h-2 bg-zinc-600" />
-              TERMINAL_ACCESS
+              QUICK_LINKS
             </h2>
           </div>
-          <div className="p-4 font-mono text-xs text-zinc-400 flex flex-col gap-2">
-            <p className="text-white">{'>'} initializing cortex client...</p>
-            <p>{'>'} fetching walrus blob indices...</p>
-            <p>{'>'} verifying sui signatures...</p>
-            <p className="text-white">{'>'} connection established.</p>
-            <div className="mt-4 flex items-center gap-2 border border-zinc-800 p-2 bg-black focus-within:border-white transition-colors">
-              <span className="text-zinc-600">$</span>
-              <input type="text" className="bg-transparent border-none outline-none w-full text-white" placeholder="_" />
-            </div>
+          <div className="p-4 flex flex-col gap-2">
+            <Link to="/app/sources" className="w-full py-3 border border-zinc-800 hover:border-white text-xs font-mono font-bold transition-colors text-white uppercase tracking-wider text-center hover:bg-white hover:text-black">
+              VIEW_ALL_SOURCES
+            </Link>
+            <Link to="/app/graph" className="w-full py-3 border border-zinc-800 hover:border-white text-xs font-mono font-bold transition-colors text-white uppercase tracking-wider text-center hover:bg-white hover:text-black">
+              GRAPH_VIEW
+            </Link>
           </div>
         </div>
       </div>
