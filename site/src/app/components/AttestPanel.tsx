@@ -23,7 +23,7 @@ export function AttestPanel({ pageSlug, sourceCount, hasOpenDispute }: AttestPan
     const tx = new Transaction();
     tx.moveCall({
       target: `${moveData.packageId}::${moveData.module}::${moveData.function}`,
-      arguments: moveData.arguments.map((arg) => tx.pure(arg as string)),
+      arguments: moveData.arguments.map((arg) => tx.pure.string(arg)),
     });
 
     signAndExecute(

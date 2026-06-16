@@ -4,6 +4,49 @@ import { format } from "date-fns";
 import { pages, pageBySlug } from "../data/mock";
 import { AttestPanel } from "../components/AttestPanel";
 
+const BLOB_URL = "https://aggregator.walrus-testnet.walrus.space/v1/blobs";
+
+const INLINE_REGEX = /(\^\[blob:[^\]]+\])|(\[\[[^\]]+\]\])/g;
+
+function parseInline(text: string) {
+  const parts = text.split(INLINE_REGEX).filter(Boolean);
+  return parts.map((part, i) => {
+    const blobMatch = part.match(/^\^\[blob:([^\]]+)\]$/);
+    if (blobMatch) {
+      const blobId = blobMatch[1];
+      return (
+        <a
+          key={i}
+          href={`${BLOB_URL}/${blobId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-0.5 text-zinc-400 hover:text-white underline underline-offset-4 decoration-zinc-700 hover:decoration-white text-xs align-super no-underline hover:underline"
+        >
+          <span className="text-[10px] font-mono text-zinc-500">[blob:</span>
+          <span className="text-[10px] font-mono">{blobId.slice(0, 8)}...</span>
+          <span className="text-[10px] font-mono text-zinc-500">]</span>
+          <ExternalLink className="w-3 h-3 text-zinc-600" />
+        </a>
+      );
+    }
+    const wikiMatch = part.match(/^\[\[([^\]]+)\]\]$/);
+    if (wikiMatch) {
+      const slug = wikiMatch[1].trim();
+      const target = pageBySlug(slug);
+      return (
+        <Link
+          key={i}
+          to={`/app/wiki/${slug}`}
+          className="text-white underline underline-offset-4 decoration-zinc-700 hover:decoration-white border-b border-zinc-700 hover:border-white"
+        >
+          {target?.title ?? slug.replace(/-/g, " ")}
+        </Link>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 export function PageDetail() {
   const { slug } = useParams();
   const page = slug ? pageBySlug(slug) : undefined;
@@ -109,7 +152,7 @@ export function PageDetail() {
               return (
                 <ul key={idx} className="list-disc list-inside mb-6 space-y-2">
                   {items.map((item, i2) => (
-                    <li key={i2} className="text-lg text-zinc-300">{item.replace('- ', '')}</li>
+                    <li key={i2} className="text-lg text-zinc-300">{parseInline(item.replace('- ', ''))}</li>
                   ))}
                 </ul>
               );
@@ -117,7 +160,7 @@ export function PageDetail() {
             if (paragraph.startsWith('> ')) {
               return (
                 <blockquote key={idx} className="border-l-2 border-white pl-4 py-2 mb-6 italic text-zinc-400">
-                  {paragraph.replace(/^> /gm, '')}
+                  {parseInline(paragraph.replace(/^> /gm, ''))}
                 </blockquote>
               );
             }
@@ -133,7 +176,7 @@ export function PageDetail() {
             if (paragraph.startsWith('[') && paragraph.includes(']: ')) {
               return null;
             }
-            return <p key={idx} className="mb-6 text-lg">{paragraph}</p>;
+            return <p key={idx} className="mb-6 text-lg">{parseInline(paragraph)}</p>;
           }) : (
             <div className="text-center p-12 font-mono text-xs text-zinc-500 uppercase">
               // NO_CONTENT

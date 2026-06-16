@@ -36,8 +36,17 @@ export type Page = {
   pos: { x: number; y: number };
 };
 
+function normalizeTitle(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && raw.length > 0) return String(raw[0]);
+  return "";
+}
+
 export const sources: Source[] = data.sources || [];
-export const pages: Page[] = data.pages || [];
+export const pages: Page[] = (data.pages || []).map((p: any) => ({
+  ...p,
+  title: normalizeTitle(p.title),
+}));
 
 export const pageBySlug = (slug: string) => pages.find((p) => p.slug === slug);
 export const sourceById = (id: string) => sources.find((s) => s.id === id);
