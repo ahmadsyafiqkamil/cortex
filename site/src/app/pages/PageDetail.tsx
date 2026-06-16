@@ -97,6 +97,7 @@ export function PageDetail() {
   const [editError, setEditError] = useState("");
   const [editTxDigest, setEditTxDigest] = useState("");
   const [contributorCapId, setContributorCapId] = useState("");
+  const [displayContent, setDisplayContent] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const fetchLiveDisputes = useCallback(async () => {
@@ -185,6 +186,8 @@ export function PageDetail() {
         {
           onSuccess: (result) => {
             setEditTxDigest(result.digest);
+            const body = editContent.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, "").trim();
+            setDisplayContent(body);
             setEditing(false);
             setSaving(false);
             fetchLiveDisputes();
@@ -417,7 +420,7 @@ export function PageDetail() {
           </div>
         ) : (
           <div className="p-8 lg:p-12 prose prose-invert max-w-none prose-p:leading-relaxed prose-p:text-zinc-300 prose-headings:text-white prose-headings:font-bold prose-headings:tracking-tight prose-a:text-white prose-a:underline prose-a:underline-offset-4 prose-a:decoration-zinc-700 hover:prose-a:decoration-white font-sans bg-[#020202]">
-            {page.content ? page.content.split('\n\n').map((paragraph, idx) => {
+            {(displayContent ?? page.content) ? (displayContent ?? page.content).split('\n\n').map((paragraph, idx) => {
             if (paragraph.startsWith('###')) {
               return <h3 key={idx} className="text-2xl mt-12 mb-6 border-b-2 border-white pb-2 inline-block uppercase tracking-tight">{paragraph.replace('### ', '')}</h3>;
             }
