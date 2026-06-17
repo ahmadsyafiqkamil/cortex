@@ -6,6 +6,7 @@ import { Home } from "./pages/Home";
 import { PageDetail } from "./pages/PageDetail";
 import { GraphView } from "./pages/GraphView";
 import { SourcesScreen } from "./pages/SourcesScreen";
+import { AskCortex } from "./pages/AskCortex";
 
 function ErrorBoundary() {
   const error = useRouteError() as Error | undefined;
@@ -33,6 +34,7 @@ export const router = createHashRouter([
       { path: "wiki/:slug", Component: PageDetail },
       { path: "graph", Component: GraphView },
       { path: "sources", Component: SourcesScreen },
+      { path: "ask", Component: AskCortex },
     ],
   },
   {
