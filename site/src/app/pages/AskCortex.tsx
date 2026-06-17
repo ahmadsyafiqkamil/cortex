@@ -140,8 +140,7 @@ export function AskCortex() {
       />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {(hasTurns || sidebarOpen) && (
-          <div className="flex items-center justify-between h-10 px-4 border-b border-[var(--cx-border-subtle)] shrink-0">
+        <div className="flex items-center justify-between h-10 px-4 border-b border-[var(--cx-border-subtle)] shrink-0">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-[var(--cx-text-tertiary)] hover:text-[var(--cx-text-primary)] transition-colors p-1 -ml-1"
@@ -163,7 +162,6 @@ export function AskCortex() {
               New
             </button>
           </div>
-        )}
 
         <div ref={threadRef} className="flex-1 overflow-y-auto">
           {turns.length === 0 ? (
