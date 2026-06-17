@@ -49,7 +49,7 @@ Tampilkan:
 
 Narasi kunci: "Agent B milik pihak lain. Tidak ada server bersama — koordinasinya murni blockchain. Dispute tidak menghapus apa pun; ketidaksepakatan jadi first-class dan permanen."
 
-### Scene 3 · 2:30–3:20 — Query + provenance klik-tembus
+### Scene 3 · 2:30–3:00 — Query + provenance klik-tembus
 
 ```bash
 cortex query "Apa syarat penerbitan SPLP untuk PMI yang kehilangan paspor?"
@@ -59,6 +59,20 @@ cortex trace syarat-penerbitan-splp "SPLP diterbitkan oleh perwakilan RI"
 Tampilkan: jawaban bersitasi → trace: klaim → page blob ID → raw blob ID → cuplikan dokumen sumber asli (buka via aggregator URL).
 
 Narasi kunci: "Cortex tidak mengklaim klaim ini *benar* — ia membuktikan klaim ini *berasal dari dokumen ini, versi ini, tidak diubah*. Verifiable provenance, bukan verifiable truth. Persis prinsip Wikipedia, dipindah ke infrastruktur trustless."
+
+### Scene 3.5 · 3:00–3:20 — Ask Cortex (RAG chat)
+
+```bash
+cortex chat
+> What should I do if I lose my passport abroad?
+# Menampilkan jawaban dengan [[slug]] citation tags + Sources block dengan real blob IDs
+> How to cook nasi goreng?
+# Menampilkan refusal: "That isn't in the Cortex knowledge base yet."
+```
+
+Atau tampilkan dari web: klik "ASK" di site nav → ketik pertanyaan paspor → lihat answer bubble + Sources list → klik citation → buka halaman wiki; ketik pertanyaan di luar domain → refusal (no hallucination).
+
+Narasi kunci: "Chat RAG dengan per-claim provenance. Setiap klaim bisa diklik ke sumbernya. Dan lihat — pertanyaan di luar domain ditolak, bukan dihalusinasi."
 
 ### Scene 4 · 3:20–4:10 — Time travel
 
@@ -104,5 +118,5 @@ Tutup: logo + GitHub + Site URL + Package ID.
 |---|---|
 | 0, 3 | Real-World Application (50%) — domain konkret + batasan jujur |
 | 1, 2 | Technical Implementation (20%) — Walrus & Sui sebagai inti, bukan tempelan |
-| 2, 3, 4 | Product & UX (20%) — badge dispute, trace klik-tembus, diff view |
+| 2, 3, 3.5, 4 | Product & UX (20%) — badge dispute, trace klik-tembus, RAG chat, diff view |
 | 5 | Presentation & Vision (10%) |

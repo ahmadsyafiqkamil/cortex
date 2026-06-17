@@ -98,6 +98,7 @@ bash scripts/demo_e2e.sh
 - [x] Walrus Site — Eleventy build complete (26 pages, graph view, diff, confidence badges)
 - [x] Site deployed — Object ID: `0x1e0deb8bd5b9ffa4db7dbf93b0f8fe627813c4ce104d235c51f3ccb624c33e58`
 - [x] Site live — URL: `http://qysquom1w51gupfuxenkfw3201fg32dntpmmimxgwxdknw66w.localhost:3000` (portal required)
+- [x] Chat (RAG) — `cortex chat` (CLI) + `POST /api/chat` + Ask Cortex web page; verified per-claim provenance
 
 WikiOwnerCap (Agent A): `0x8d3bb8f4566f1040303385524cb8d8dbe26fc1ab179e4f5dc36c1103fb031d6b`
 Explorer: https://suiscan.xyz/testnet/object/0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755
