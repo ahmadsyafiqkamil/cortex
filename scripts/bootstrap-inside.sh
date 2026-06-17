@@ -80,7 +80,8 @@ fi
 
 _step "2" "Faucet (SUI testnet tokens)"
 
-ADDRS=($(sui client addresses 2>/dev/null | grep '^0x' | awk '{print $1}'))
+# Sui 1.73+ outputs table format; extract hex addresses from any format
+ADDRS=($(sui client addresses 2>/dev/null | grep -oE '0x[a-fA-F0-9]{64}' || true))
 if [ ${#ADDRS[@]} -lt 2 ]; then
     _err "Need at least 2 addresses (Agent A + Agent B). Only found ${#ADDRS[@]}."
     exit 1
