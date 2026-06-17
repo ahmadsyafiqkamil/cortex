@@ -169,30 +169,42 @@ echo "  python3:     $(python3 --version 2>&1 || echo MISSING)"
 '
 _ok "Tooling verified"
 
-# ── 6. next steps ──────────────────────────────────────────────────────
+# ── 6. verify portal + nginx ────────────────────────────────────────────
+
+_log "Checking portal + nginx..."
+PORTAL_UP=$(docker compose ps --format json | grep -c '"Service":"walrus-portal"' || true)
+NGINX_UP=$(docker compose ps --format json | grep -c '"Service":"nginx"' || true)
+_ok "Portal: ${PORTAL_UP}/1, nginx: ${NGINX_UP}/1"
+
+# ── 7. next steps ──────────────────────────────────────────────────────
+
+SITE_B36=$(docker compose exec -T cortex-dev bash -c "site-builder convert 0x5c4024c9c3dcaa7f6d5729389e8346e5ebba9a157e384b255dddc49902868f2d 2>/dev/null" || echo "SITE_OBJECT_ID")
 
 echo ""
 _bold "======================================================"
 _bold "  Deployment complete! Next steps:"
 _bold "======================================================"
 echo ""
-echo "  Run the interactive bootstrap INSIDE the container:"
+echo "  1. Run interactive bootstrap:"
 echo ""
 echo "    docker compose exec -it cortex-dev bash"
 echo "    bash /workspace/scripts/bootstrap-inside.sh"
 echo ""
-echo "  Or follow the manual steps in docs/DOCKER.md §4."
+echo "  2. Build + deploy Walrus Site:"
 echo ""
-echo "  After bootstrap, deploy the Walrus Site:"
+echo "    docker compose exec -it cortex-dev bash"
+echo "    cd /workspace/site && pnpm run build"
+echo "    site-builder --context=testnet deploy --epochs max dist"
 echo ""
-echo "    cd site && pnpm install && pnpm run build"
-echo "    site-builder --context=testnet deploy --epochs max site/dist"
+echo "  3. Akses site (public, no hosts edit):"
 echo ""
-echo "  Setup a cron job to extend blob epochs weekly:"
+echo "    http://${SITE_B36}.$(hostname -I | awk '{print $1}').nip.io:3000"
+echo ""
+echo "  4. Setup cron untuk extend blob:"
 echo ""
 echo "    crontab -e"
-echo "    # Add: 0 8 * * 1 cd $PROJECT_DIR && docker compose exec -T cortex-dev bash /workspace/scripts/extend_blobs.sh"
+echo "    # Add: 0 8 * * 1 cd $PROJECT_DIR && docker compose exec -T cortex-dev bash /workspace/scripts/extend_blobs.sh --do >> /var/log/cortex-extend.log 2>&1"
 echo ""
 _bold "======================================================"
 echo ""
-_ok "Done. Happy hacking!"
+_ok "Done."
