@@ -111,16 +111,40 @@ _step "3" "Walrus testnet + WAL tokens"
 WALRUS_CONFIG="$HOME/.config/walrus"
 mkdir -p "$WALRUS_CONFIG"
 
+# 3a. Storage client config (for walrus store/read)
 if [ ! -f "$WALRUS_CONFIG/client_config.yaml" ]; then
     _log "Fetching Walrus testnet client config..."
-    if curl -fsSL "https://raw.githubusercontent.com/MystenLabs/walrus-docs/refs/heads/main/docs/testnet/client_config.yaml" \
-        -o "$WALRUS_CONFIG/client_config.yaml" 2>/dev/null; then
-        _ok "Walrus client config downloaded"
-    else
-        _warn "Could not auto-download config. See docs.wal.app/docs/getting-started for manual setup."
+    FETCH_OK=false
+    for URL in \
+        "https://raw.githubusercontent.com/MystenLabs/walrus-docs/refs/heads/main/docs/testnet/client_config.yaml" \
+        "https://raw.githubusercontent.com/MystenLabs/walrus/main/testnet/client_config.yaml"; do
+        if curl -fsSL "$URL" -o "$WALRUS_CONFIG/client_config.yaml" 2>/dev/null; then
+            _ok "Walrus client config downloaded from $URL"
+            FETCH_OK=true
+            break
+        fi
+    done
+    if [ "$FETCH_OK" = false ]; then
+        _warn "Could not auto-download client_config.yaml."
+        _warn "Please create ~/.config/walrus/client_config.yaml manually."
+        _warn "See: https://docs.wal.app/usage/setup.html for current testnet values."
     fi
 else
     _ok "Walrus client config already exists"
+fi
+
+# 3b. Sites config (for site-builder deploy)
+SITES_CONFIG="$WALRUS_CONFIG/sites-config.yaml"
+if [ ! -f "$SITES_CONFIG" ]; then
+    _log "Fetching Walrus Sites config..."
+    if curl -fsSL "https://raw.githubusercontent.com/MystenLabs/walrus-sites/refs/heads/testnet/sites-config.yaml" \
+        -o "$SITES_CONFIG" 2>/dev/null; then
+        _ok "Sites config downloaded"
+    else
+        _warn "Could not auto-download sites-config.yaml. site-builder deploy will fail until this file exists."
+    fi
+else
+    _ok "Sites config already exists"
 fi
 
 _log "Verifying Walrus connection..."
