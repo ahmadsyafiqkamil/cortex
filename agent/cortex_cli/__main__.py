@@ -107,12 +107,17 @@ def ingest(
     source_file: Path = typer.Argument(..., help="Path to the raw source text file."),
     title: str = typer.Option("", "--title", "-t", help="Human-readable title for this source."),
     url: str = typer.Option("", "--url", "-u", help="Origin URL (empty for local files)."),
+    blob_id: str = typer.Option("", "--blob-id", "-b", help="Existing Walrus blob ID (skips store step)."),
 ) -> None:
     """Ingest a raw source file into Cortex.
 
     7-step pipeline: store raw blob → register source on-chain → LLM extract
     concepts → write wiki pages → store page blobs → record pages on-chain →
     emit links → update _index and _log system pages.
+
+    With --blob-id, Step 1 (store) is skipped — the provided blob_id is used
+    directly.  Useful when the source is already stored on Walrus (e.g. by the
+    dispute flow).
     """
     source_file = source_file.resolve()
     if not source_file.exists():
@@ -136,15 +141,22 @@ def ingest(
     console.rule("[bold cyan]Cortex Ingest Pipeline[/bold cyan]")
     rprint(f"[bold]Source:[/bold] {source_file}")
     rprint(f"[bold]Title:[/bold]  {title}")
+    if blob_id:
+        rprint(f"[bold]Blob ID:[/bold] {blob_id} (skip store)")
 
     # ─── Step 1: Store raw source on Walrus ──────────────────────────────────
-    rprint("\n[bold cyan]Step 1/7[/bold cyan] Storing raw source on Walrus…")
-    try:
-        raw_blob_id = walrus.store(source_file)
-    except WalrusError as exc:
-        rprint(f"[red]Walrus error:[/red] {exc}")
-        raise typer.Exit(code=1)
-    rprint(f"  [green]✓[/green] raw_blob_id = {raw_blob_id}")
+    if blob_id:
+        raw_blob_id = blob_id
+        rprint("\n[bold cyan]Step 1/7[/bold cyan] Using existing blob on Walrus…")
+        rprint(f"  [green]✓[/green] raw_blob_id = {raw_blob_id} (pre-stored)")
+    else:
+        rprint("\n[bold cyan]Step 1/7[/bold cyan] Storing raw source on Walrus…")
+        try:
+            raw_blob_id = walrus.store(source_file)
+        except WalrusError as exc:
+            rprint(f"[red]Walrus error:[/red] {exc}")
+            raise typer.Exit(code=1)
+        rprint(f"  [green]✓[/green] raw_blob_id = {raw_blob_id}")
 
     # ─── Step 2: Register source on-chain ────────────────────────────────────
     rprint("\n[bold cyan]Step 2/7[/bold cyan] Registering source on-chain…")

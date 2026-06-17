@@ -19,6 +19,7 @@ interface GeneratePagesModalProps {
   title: string;
   open: boolean;
   onClose: () => void;
+  onPageGenerated?: () => void;
 }
 
 function LogView({ lines }: { lines: string[] }) {
@@ -52,19 +53,26 @@ function LogView({ lines }: { lines: string[] }) {
   );
 }
 
-export function GeneratePagesModal({ blobId, title, open, onClose }: GeneratePagesModalProps) {
+export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerated }: GeneratePagesModalProps) {
   const account = useCurrentAccount();
   const [job, setJob] = useState<JobState>({ status: "idle", jobId: "", pages: [], error: "", log: [] });
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wasDone = useRef(false);
 
   useEffect(() => {
     if (!open) {
       setJob({ status: "idle", jobId: "", pages: [], error: "", log: [] });
+      wasDone.current = false;
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     }
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [open]);
+
+  const handleClose = () => {
+    if (wasDone.current) onPageGenerated?.();
+    onClose();
+  };
 
   const pollJob = (jobId: string) => {
     pollRef.current = setInterval(async () => {
@@ -77,6 +85,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose }: GeneratePag
 
         if (data.status === "done") {
           setJob((prev) => ({ ...prev, status: "done", pages: data.pages || [], log: currentLog }));
+          wasDone.current = true;
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         } else if (data.status === "error") {
           setJob((prev) => ({ ...prev, status: "error", error: data.error || "Unknown error", log: currentLog }));
@@ -135,7 +144,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose }: GeneratePag
             <span className={`w-2 h-2 rounded-full ${isBusy ? "animate-pulse bg-green-500" : job.status === "done" ? "bg-green-500" : job.status === "error" ? "bg-red-500" : "bg-green-500 animate-pulse"}`} />
             GENERATE_PAGES
           </h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-white">
+          <button onClick={handleClose} className="text-zinc-500 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -227,7 +236,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose }: GeneratePag
                   GENERATE_AGAIN
                 </button>
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="font-mono text-[10px] uppercase tracking-wider border border-zinc-700 text-zinc-400
                              px-3 py-1.5 hover:border-white hover:text-white"
                 >

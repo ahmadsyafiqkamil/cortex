@@ -5,7 +5,7 @@ import {
   useCurrentAccount,
   useSuiClient,
 } from "@mysten/dapp-kit";
-import { sources, pages, type Source } from "../data/mock";
+import { sources, type Source } from "../data/mock";
 import { PACKAGE_ID, WIKI_ID, AGGREGATOR_URL } from "../lib/sui";
 import { GeneratePagesModal } from "../components/GeneratePagesModal";
 
@@ -16,6 +16,7 @@ export function SourcesScreen() {
   const [contributorLoading, setContributorLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<{ blobId: string; title: string } | null>(null);
   const [liveSources, setLiveSources] = useState<Source[] | null>(null);
+  const [livePageSourceMap, setLivePageSourceMap] = useState<Map<string, { slug: string }[]>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
 
   const checkContributor = useCallback(async () => {
@@ -47,35 +48,75 @@ export function SourcesScreen() {
     setRefreshing(true);
     try {
       const dfs = await client.getDynamicFields({ parentId: WIKI_ID });
+      console.log("[SourcesScreen] getDynamicFields returned", dfs.data.length, "entries");
       const fetched: Source[] = [];
+      const pageMap = new Map<string, { slug: string }[]>();
 
       for (const df of dfs.data) {
         const name = (df.name as any)?.value ?? String(df.name ?? "");
-        if (!name.startsWith("src:")) continue;
 
-        try {
-          const obj = await client.getObject({
-            id: df.objectId,
-            options: { showContent: true },
-          });
-          const fields = (obj.data?.content as any)?.fields ?? {};
-          const blob = fields.blob ?? "";
-          if (!blob) continue;
+        if (name.startsWith("src:")) {
+          try {
+            const obj = await client.getObject({
+              id: df.objectId,
+              options: { showContent: true },
+            });
+            const content = obj.data?.content as any;
+            const fields = content?.fields;
+            const value = fields?.value?.fields ?? {};
+            console.log("[SourcesScreen] RAW src entry", {
+              name,
+              objectId: df.objectId,
+              hasContent: !!obj.data?.content,
+              contentType: content?.dataType,
+              contentKeys: content ? Object.keys(content) : [],
+              fieldKeys: fields ? Object.keys(fields) : [],
+              valueKeys: value ? Object.keys(value) : [],
+            });
+            const blob = value.blob ?? "";
+            if (!blob) continue;
 
-          fetched.push({
-            id: blob,
-            title: fields.title ?? blob,
-            blob,
-            url: `${AGGREGATOR_URL}/${blob}`,
-          });
-        } catch {
-          // skip unreadable entries
+            fetched.push({
+              id: blob,
+              title: value.title ?? blob,
+              blob,
+              url: `${AGGREGATOR_URL}/${blob}`,
+            });
+            console.log("[SourcesScreen] source:", { name, blob, title: value.title });
+          } catch (e) {
+            console.warn("[SourcesScreen] skip unreadable source entry:", name, e);
+          }
+        } else if (name && !name.startsWith("_")) {
+          try {
+            const obj = await client.getObject({
+              id: df.objectId,
+              options: { showContent: true },
+            });
+            const content = obj.data?.content as any;
+            const fields = content?.fields;
+            const value = fields?.value?.fields ?? {};
+            const sourcesList: string[] = value.sources ?? [];
+
+            for (const srcBlob of sourcesList) {
+              if (!pageMap.has(srcBlob)) pageMap.set(srcBlob, []);
+              pageMap.get(srcBlob)!.push({ slug: name });
+            }
+            if (sourcesList.length > 0) {
+              console.log("[SourcesScreen] page:", { slug: name, sources: sourcesList });
+            } else {
+              console.log("[SourcesScreen] page with NO sources:", { slug: name, valueKeys: Object.keys(value) });
+            }
+          } catch (e) {
+            console.warn("[SourcesScreen] skip unreadable page entry:", name, e);
+          }
         }
       }
 
       setLiveSources(fetched);
-    } catch {
-      // keep existing data
+      setLivePageSourceMap(pageMap);
+      console.log("[SourcesScreen] done — sources:", fetched.length, "pages cited:", [...pageMap.entries()].map(([k,v]) => `${k}=>${v.map(x=>x.slug)}`));
+    } catch (e) {
+      console.error("[SourcesScreen] fetchLiveSources failed:", e);
     }
     setRefreshing(false);
   }, [client]);
@@ -87,7 +128,7 @@ export function SourcesScreen() {
   const displaySources = liveSources && liveSources.length > 0 ? liveSources : sources;
   const sourceWithPages = displaySources.map((s) => ({
     ...s,
-    citedBy: pages.filter((p) => p.sourceIds?.includes(s.id)),
+    citedBy: livePageSourceMap.get(s.id) ?? [],
   }));
 
   return (
@@ -121,7 +162,7 @@ export function SourcesScreen() {
                 key={source.id}
                 source={source}
                 index={i}
-                isLast={i === sources.length - 1}
+                isLast={i === sourceWithPages.length - 1}
                 isContributor={isContributor}
                 contributorLoading={contributorLoading}
                 onGeneratePages={(blobId, title) => setActiveModal({ blobId, title })}
@@ -146,6 +187,7 @@ export function SourcesScreen() {
           title={activeModal.title}
           open={true}
           onClose={() => setActiveModal(null)}
+          onPageGenerated={() => { fetchLiveSources(); }}
         />
       )}
     </div>
@@ -160,7 +202,7 @@ function SourceRow({
   contributorLoading,
   onGeneratePages,
 }: {
-  source: Source & { citedBy: typeof pages };
+  source: Source & { citedBy: { slug: string }[] };
   index: number;
   isLast: boolean;
   isContributor: boolean;

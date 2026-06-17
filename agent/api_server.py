@@ -74,6 +74,7 @@ def _run_ingest(job_id: str, blob_id: str, title: str, address: str) -> None:
     cmd = [
         sys.executable, "-m", "cortex_cli", "ingest",
         str(tmp_path),
+        "--blob-id", blob_id,
         "--title", title,
     ]
 
