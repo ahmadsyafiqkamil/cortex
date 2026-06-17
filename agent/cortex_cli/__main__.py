@@ -48,6 +48,9 @@ try:
     )
     from llm import LLMClient, LLMConfig, LLMConfigError, LLMResponseError
     from walrus import WalrusClient, WalrusError
+    from chat.engine import ChatEngine
+    from chat.retriever import FullCatalogRetriever
+    from chat.types import ChatError, ChatMessage
 except ImportError:
     from agent.chain import ChainClient, ChainError  # type: ignore
     from agent.cortex_cli.pageformat import (  # type: ignore
@@ -61,6 +64,9 @@ except ImportError:
     )
     from agent.llm import LLMClient, LLMConfig, LLMConfigError, LLMResponseError  # type: ignore
     from agent.walrus import WalrusClient, WalrusError  # type: ignore
+    from agent.chat.engine import ChatEngine  # type: ignore
+    from agent.chat.retriever import FullCatalogRetriever  # type: ignore
+    from agent.chat.types import ChatError, ChatMessage  # type: ignore
 
 console = Console()
 app = typer.Typer(help="Cortex — decentralized knowledge base maintained by AI agents.")
@@ -408,6 +414,64 @@ def query(
         for slug, blob_id, title in all_citations:
             rprint(f"  [cyan]{slug}[/cyan] → [dim]{title}[/dim]")
             rprint(f"    blob: [yellow]{blob_id}[/yellow]")
+
+
+# ── chat ─────────────────────────────────────────────────────────────────────
+
+@app.command("chat")
+def chat() -> None:
+    """Multi-turn chat over the wiki with verifiable provenance citations.
+
+    Type a question; Ctrl-D (or 'exit') quits. Conversation history is kept in
+    memory for the session only — the engine itself is stateless.
+    """
+    try:
+        llm_config = LLMConfig.from_env()
+    except LLMConfigError as exc:
+        rprint(f"[red]LLM config error:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    llm = LLMClient(llm_config)
+    chain = ChainClient()
+    walrus = WalrusClient()
+    retriever = FullCatalogRetriever(llm, _PROMPTS_DIR)
+    engine = ChatEngine(
+        chain=chain, walrus=walrus, llm=llm, retriever=retriever, prompts_dir=_PROMPTS_DIR
+    )
+
+    console.rule("[bold cyan]Cortex Chat[/bold cyan]")
+    rprint("[dim]Ask a question. Ctrl-D or 'exit' to quit.[/dim]\n")
+
+    history: list[ChatMessage] = []
+    while True:
+        try:
+            question = console.input("[bold green]you> [/bold green]").strip()
+        except (EOFError, KeyboardInterrupt):
+            rprint("\n[dim]bye[/dim]")
+            break
+        if not question:
+            continue
+        if question.lower() in {"exit", "quit"}:
+            break
+
+        history.append(ChatMessage(role="user", content=question))
+        try:
+            resp = engine.respond(history)
+        except ChatError as exc:
+            rprint(f"[red]Error:[/red] {exc}")
+            history.pop()  # don't keep a turn we couldn't answer
+            continue
+
+        console.rule("[bold green]Cortex[/bold green]")
+        console.print(resp.answer, markup=False)
+        history.append(ChatMessage(role="assistant", content=resp.answer))
+
+        if resp.citations:
+            console.rule("[bold]Sources[/bold]")
+            for c in resp.citations:
+                rprint(f"  [cyan]{c.slug}[/cyan] -> [dim]{c.source_title}[/dim]")
+                rprint(f"    blob: [yellow]{c.source_blob_id}[/yellow]")
+        rprint("")
 
 
 # ── trace ──────────────────────────────────────────────────────────────────────
