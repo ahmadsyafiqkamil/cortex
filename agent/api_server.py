@@ -29,6 +29,9 @@ _AGENT_DIR = Path(__file__).parent
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
 
+sys.path.insert(0, str(_AGENT_DIR))
+from chat.types import ChatError, ChatMessage  # noqa: E402
+
 
 def _check_contributor(address: str) -> tuple[bool, str]:
     try:
@@ -140,6 +143,64 @@ def _extract_page_slugs(lines: list[str]) -> list[str]:
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok"})
+
+
+def _run_chat(messages: list[ChatMessage]):
+    """Build a stateless engine per request and return a ChatResponse."""
+    sys.path.insert(0, str(_AGENT_DIR))
+    from chain import ChainClient
+    from walrus.client import WalrusClient
+    from llm import LLMClient, LLMConfig
+    from chat.engine import ChatEngine
+    from chat.retriever import FullCatalogRetriever
+
+    prompts_dir = _AGENT_DIR / "llm" / "prompts"
+    llm = LLMClient(LLMConfig.from_env())
+    retriever = FullCatalogRetriever(llm, prompts_dir)
+    engine = ChatEngine(
+        chain=ChainClient(), walrus=WalrusClient(), llm=llm,
+        retriever=retriever, prompts_dir=prompts_dir,
+    )
+    return engine.respond(messages)
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    body = request.get_json(silent=True) or {}
+    raw_messages = body.get("messages")
+    if not isinstance(raw_messages, list) or not raw_messages:
+        return jsonify({"error": "messages (non-empty list) is required"}), 400
+
+    try:
+        messages = [
+            ChatMessage(role=str(m["role"]), content=str(m["content"]))
+            for m in raw_messages
+        ]
+    except (KeyError, TypeError):
+        return jsonify({"error": "each message needs 'role' and 'content'"}), 400
+
+    try:
+        resp = _run_chat(messages)
+    except ChatError as exc:
+        return jsonify({"error": str(exc)}), 502
+    except Exception as exc:  # config/provider errors
+        return jsonify({"error": f"Chat failed: {exc}"}), 502
+
+    return jsonify({
+        "answer": resp.answer,
+        "citations": [
+            {
+                "slug": c.slug,
+                "page_blob_id": c.page_blob_id,
+                "source_blob_id": c.source_blob_id,
+                "source_title": c.source_title,
+            }
+            for c in resp.citations
+        ],
+        "pages_used": list(resp.pages_used),
+        "refused": resp.refused,
+        "error": None,
+    })
 
 
 @app.route("/api/ingest", methods=["POST"])
