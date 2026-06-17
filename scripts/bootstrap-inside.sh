@@ -115,20 +115,13 @@ mkdir -p "$WALRUS_CONFIG"
 # 3a. Storage client config (for walrus store/read)
 if [ ! -f "$WALRUS_CONFIG/client_config.yaml" ]; then
     _log "Fetching Walrus testnet client config..."
-    FETCH_OK=false
-    for URL in \
-        "https://raw.githubusercontent.com/MystenLabs/walrus-docs/refs/heads/main/docs/testnet/client_config.yaml" \
-        "https://raw.githubusercontent.com/MystenLabs/walrus/main/testnet/client_config.yaml"; do
-        if curl -fsSL "$URL" -o "$WALRUS_CONFIG/client_config.yaml" 2>/dev/null; then
-            _ok "Walrus client config downloaded from $URL"
-            FETCH_OK=true
-            break
-        fi
-    done
-    if [ "$FETCH_OK" = false ]; then
+    if curl -fsSL "https://docs.wal.app/setup/client_config.yaml" \
+        -o "$WALRUS_CONFIG/client_config.yaml" 2>/dev/null; then
+        _ok "Walrus client config downloaded"
+    else
         _warn "Could not auto-download client_config.yaml."
         _warn "Please create ~/.config/walrus/client_config.yaml manually."
-        _warn "See: https://docs.wal.app/usage/setup.html for current testnet values."
+        _warn "See: https://docs.wal.app/docs/getting-started for setup instructions."
     fi
 else
     _ok "Walrus client config already exists"

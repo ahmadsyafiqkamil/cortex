@@ -56,9 +56,8 @@ RUN curl -fsSL https://raw.githubusercontent.com/MystenLabs/suiup/main/install.s
 
 # --- Pre-fetch walrus configs (storage client + sites) ---
 # Storage client config (for `walrus store/read`):
-# URL source: https://docs.wal.app/usage/setup.html
 RUN mkdir -p /home/cortex/.config/walrus \
-    && curl -fsSL https://raw.githubusercontent.com/MystenLabs/walrus-docs/refs/heads/main/docs/testnet/client_config.yaml \
+    && curl -fsSL https://docs.wal.app/setup/client_config.yaml \
         -o /home/cortex/.config/walrus/client_config.yaml || \
        echo "WARN: client_config.yaml fetch failed — run bootstrap-inside.sh inside container" \
     # Sites config (for `site-builder deploy`):
