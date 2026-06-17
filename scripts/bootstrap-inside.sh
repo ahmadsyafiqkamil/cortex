@@ -20,6 +20,7 @@ _ok()   { echo -e "${GREEN}[   ok   ]${NC} $*"; }
 _warn() { echo -e "${YELLOW}[  warn  ]${NC} $*"; }
 _err()  { echo -e "${RED}[ ERROR  ]${NC} $*"; }
 _step() { echo -e "\n${BOLD}── Step $1: $2 ──${NC}"; }
+_bold() { echo -e "${BOLD}$*${NC}"; }
 
 _confirm() {
     local prompt="$1"
