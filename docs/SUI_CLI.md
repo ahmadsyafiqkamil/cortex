@@ -137,6 +137,30 @@ sui client call \
   --function mint_contributor_cap \
   --args 0xOWNER_CAP_ID 0xWIKI_ID 0xALAMAT_B \
   --gas-budget 10000000
+
+# Contoh: attest_provenance (tanpa cap — siapa pun bisa)
+sui client call \
+  --package 0xPKG... \
+  --module  attest \
+  --function attest_provenance \
+  --args 0xWIKI_ID "slug-halaman" "blob_id_walrus" \
+  --gas-budget 10000000
+
+# Contoh: submit_application (calon contributor)
+sui client call \
+  --package 0xPKG... \
+  --module  contributor \
+  --function submit_application \
+  --args 0xWIKI_ID "blob_rationale" \
+  --gas-budget 10000000
+
+# Contoh: approve_application (owner)
+sui client call \
+  --package 0xPKG... \
+  --module  contributor \
+  --function approve_application \
+  --args 0xOWNER_CAP_ID 0xWIKI_ID 0xALAMAT_CALON \
+  --gas-budget 10000000
 ```
 
 > `0x6` adalah object ID sistem Clock (sama di semua jaringan Sui — tidak perlu diganti).
@@ -221,6 +245,10 @@ sui client call \
 
 # 8. Tulis semua ID ke agent/.cortex/config.json
 #    (lihat template di agent/config.example.json atau ARCHITECTURE §4.3)
+
+# 9. Untuk attest & contributor: gunakan CLI python (lebih mudah):
+#    python -m cortex_cli attest <slug>
+#    python -m cortex_cli contributor apply/approve/reject/revoke/list/status
 ```
 
 ---

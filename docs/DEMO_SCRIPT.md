@@ -18,9 +18,9 @@ Visual: 1 slide diagram (2 kantor → 1 wiki → Walrus/Sui).
 ### Scene 1 · 0:40–1:40 — Ingest oleh Agent A
 
 ```bash
-cortex ingest demo-sources/permenlu-pelindungan-pmi.pdf
-cortex ingest demo-sources/sop-penerbitan-splp.md
-cortex ingest demo-sources/panduan-kbri-kl.md
+cortex ingest demo-sources/source1.txt
+cortex ingest demo-sources/source2.txt  
+cortex ingest demo-sources/source3.txt
 ```
 
 Tampilkan (split screen terminal + browser):
@@ -33,13 +33,12 @@ Narasi kunci: "Konten hidup di Walrus — blob ID-nya deterministik dari konten.
 ### Scene 2 · 1:40–2:30 — Agent B lint & dispute (keypair berbeda)
 
 ```bash
-# identitas B
-cortex --profile agent-b lint
-cortex --profile agent-b dispute raise \
+# Agent B lint & dispute
+cortex lint
+cortex dispute raise \
   --page prosedur-pemulangan-pmi \
-  --claim "verifikasi memerlukan 14 hari kerja" \
-  --counter-source demo-sources/surat-edaran-revisi.pdf \
-  --rationale "SE 2025 memangkas jadi 7 hari"
+  --counter-source demo-sources/counter-pemulangan-jenazah.txt \
+  --rationale "Prosedur ini perlu dikemaskini berdasarkan edaran terbaru 2025"
 ```
 
 Tampilkan:
@@ -76,11 +75,11 @@ Narasi kunci: "Chat RAG dengan per-claim provenance. Setiap klaim bisa diklik ke
 
 ### Scene 4 · 3:20–4:10 — Time travel
 
-```bash
-cortex snapshot --at "2026-06-16T08:00Z" --page prosedur-pemulangan-pmi
-```
-
-Tampilkan: diff view di site — versi sebelum vs sesudah dispute/update; chain of blob IDs di panel history; tiap versi tetap bisa dibaca (immutable).
+Tampilkan di Walrus Site:
+- Buka halaman wiki → panel History menampilkan daftar versi blob + timestamp.
+- Pilih dua versi dari dropdown → diff view sisi-sisi (sebelum vs sesudah dispute/update).
+- Chain of blob IDs di panel history; tiap versi tetap bisa dibaca (immutable).
+- Diff view dibangun dari data on-chain (`history` field di PageRecord + `PageUpdated` events).
 
 ### Scene 5 · 4:10–5:00 — Visi (slide penutup)
 
@@ -96,7 +95,7 @@ Tutup: logo + GitHub + Site URL + Package ID.
 - [ ] `scripts/demo_e2e.sh` jalan bersih dari clean state 2x berturut-turut
 - [ ] Wiki demo final: 5–6 halaman rapi, ≥10 wikilink, lint bersih KECUALI 1 temuan yang disengaja untuk Scene 2
 - [ ] Semua blob `--epochs max`; cek `walrus info` sehat; pilih aggregator tercepat
-- [ ] Browser bersih: 3 tab (Site, Explorer, terminal), zoom 125%, font terminal besar
+- [ ] Browser bersih: 4 tab (Site Home, Site AskCortex, Explorer, terminal), zoom 125%, font terminal besar
 - [ ] Timer terlihat saat latihan; latihan penuh minimal 2x (target 4:30, sisakan margin)
 
 **Saat rekam:**

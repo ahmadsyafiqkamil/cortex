@@ -4,8 +4,9 @@ Reproducible environment for Cortex. All tooling (`sui`, `walrus`, `site-builder
 Node 22, Python 3.12) lives in the image. **Secrets and wallet state live in volumes
 and `.env`, never in the image.**
 
+> Alternatif: setup bare-metal via [SETUP.md](SETUP.md).
 > ⚠️ The Sui/Walrus ecosystem moves fast. If a command fails, check the official docs
-> (docs.sui.io, docs.wal.app) before guessing — same rule as [SETUP.md](SETUP.md).
+> (docs.sui.io, docs.wal.app) before guessing — same rule as SETUP.md.
 
 ---
 
@@ -118,7 +119,7 @@ diff /tmp/smoke.txt /tmp/smoke_out.txt && echo OK
 cd /workspace/agent
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python -m cortex_cli llm-smoke    # once the CLI exists; reads LLM_* from env
+python -m cortex_cli llm-smoke    # verifikasi konfigurasi LLM (provider-agnostic)
 ```
 
 ## 5. Persistence & migration (VPS ↔ local)

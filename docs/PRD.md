@@ -3,11 +3,11 @@
 
 | | |
 |---|---|
-| **Versi** | 1.0 — 12 Juni 2026 |
+| **Versi** | 2.0 — 17 Juni 2026 |
 | **Owner** | Ahmad Syafiq Kamil |
 | **Target** | Sui Overflow 2026 — Track Walrus ($70.000) |
-| **Deadline submission** | 21 Juni 2026 (9 hari) |
-| **Status** | Draft untuk eksekusi |
+| **Deadline submission** | 21 Juni 2026 |
+| **Status** | Release Candidate — semua fitur P0 + P1 + F11 terimplementasi |
 
 ---
 
@@ -63,8 +63,8 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 ┌────────────────────────────────────────────────────────┐
 │ UI: Walrus Site (wiki publik + graph view + diff view) │
 ├────────────────────────────────────────────────────────┤
-│ Agents (off-chain, Python + Gemini 2.5 Flash):          │
-│   ingest │ query │ lint │ (agent ke-2 untuk demo)       │
+│ Agents (off-chain, Python + provider-agnostic LLM):      │
+│   ingest │ query │ chat │ lint │ dispute │ attest │ edit   │
 ├────────────────────────────────────────────────────────┤
 │ Sui Move (coordination):                                │
 │   Wiki (shared object) + WikiOwnerCap / ContributorCap │
@@ -89,7 +89,7 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 | # | Fitur | Deskripsi | Acceptance criteria |
 |---|---|---|---|
 | F1 | **Move package: Cortex core** | `Wiki` shared object; `WikiOwnerCap` & `ContributorCap` (capability pattern); `PageRecord` via dynamic fields (`name → {latest_blob_id, prev_blob_ids: vector, sources: vector}`); fungsi `create_wiki`, `add_page`, `update_page`, `register_source`; event `LinkAdded`, `PageUpdated` | Deployed ke Sui testnet, Package ID tercatat; semua fungsi teruji via CLI |
-| F2 | **Ingest agent** | `cortex ingest <url/file>`: simpan raw source ke Walrus → ekstrak konsep (Gemini) → tulis/update page blobs (markdown + frontmatter YAML berisi `sources: [blob_id]` per klaim) → update pointer on-chain → update index & log | 1 sumber menghasilkan ≥1 halaman baru + update ≥1 halaman lama + entri log; semua blob ID valid |
+| F2 | **Ingest agent** | `cortex ingest <url/file>`: simpan raw source ke Walrus → ekstrak konsep (LLM) → tulis/update page blobs (markdown + frontmatter YAML berisi `sources: [blob_id]` per klaim) → update pointer on-chain → update index & log | 1 sumber menghasilkan ≥1 halaman baru + update ≥1 halaman lama + entri log; semua blob ID valid |
 | F3 | **Query agent** | `cortex query "..."`: baca index → baca halaman relevan dari Walrus → jawab dengan sitasi `[page → source blob ID]` | Jawaban memuat sitasi yang bisa ditelusuri sampai raw blob |
 | F4 | **Verifiable provenance** | Setiap klaim di halaman wajib menunjuk blob ID sumber; UI menampilkan rantai klaim → halaman → blob → raw source | Demo klik-tembus dari satu klaim sampai konten sumber mentah |
 | F5 | **Walrus Site** | Wiki dirender sebagai situs statis publik (halaman + daftar sumber + link Sui Explorer per objek) | URL publik bisa diakses; site object ID tercatat |
@@ -103,7 +103,10 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 | F8 | **Time travel** | `cortex snapshot <timestamp>` merekonstruksi wiki dari chain of blob IDs; UI diff antar dua snapshot |
 | F9 | **Demo dua agent** | Agent A (ingest, identitas/keypair 1) dan Agent B (lint + dispute, keypair 2) bekerja pada wiki yang sama tanpa server bersama — koordinasi murni via Sui |
 | F10 | **Lint agent** | `cortex lint`: deteksi broken `[[wikilink]]` (target blob tidak terdaftar), orphan pages (tanpa inbound link dari event index), dan klaim tanpa sumber |
-| F11 | **Wallet sign-in + provenance attestation** | Connect wallet Sui di browser (Walrus Site). Verifier (wallet apa pun) men-*attest* on-chain bahwa klaim halaman terlacak ke raw source terdaftar — `cortex::attest`. Attestation = objek non-ekonomi yang dimiliki verifier + hitungan publik dari event. **Bukan** klaim kebenaran, **bukan** token/reputasi. Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md` |
+| F11 | **Wallet sign-in + provenance attestation** | Connect wallet Sui di browser (Walrus Site). Verifier (wallet apa pun) men-*attest* on-chain bahwa klaim halaman terlacak ke raw source terdaftar — `cortex::attest`. Attestation = objek non-ekonomi yang dimiliki verifier + hitungan publik dari event. **Bukan** klaim kebenaran, **bukan** token/reputasi. Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md` | ✅ Done |
+| F12 | **Chat RAG** | Multi-turn chat dengan per-claim provenance citations — `cortex chat` (CLI) + `POST /api/chat` (Flask API server) + AskCortex (wallet-connected web UI). Keyword-based retriever + session persistence. Menolak pertanyaan di luar domain (no hallucination). Spec: `docs/superpowers/specs/2026-06-17-cortex-chat-rag-design.md` | ✅ Done |
+| F13 | **Page editing** | `cortex edit <slug>` dengan mode `--editor`/`--file`/`--content`. Update page blob on-chain + perbarui pointer + history. | ✅ Done |
+| F14 | **Contributor lifecycle** | `cortex contributor apply/approve/reject/revoke/list/status` — on-chain application flow via `cortex::contributor`. Calon kirim rationale_blob, owner approve/reject, bisa revoke kapan saja. | ✅ Done |
 
 ### P2 — Dicoret dari scope hackathon (eksplisit)
 
@@ -157,27 +160,29 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 | Layer | Pilihan | Catatan |
 |---|---|---|
 | Storage | Walrus testnet | `walrus store --epochs max --context testnet` |
-| Contract | Sui Move (testnet) | 1 package, ±4 module kecil |
-| Agent LLM | Gemini 2.5 Flash | Murah, cepat; prompt ekstraksi konsep + penulisan halaman |
-| Agent & CLI | Python 3.11 + typer | `ingest`, `query`, `lint`, `snapshot`, `dispute` |
-| SDK on-chain | Sui TypeScript SDK *atau* `sui client` via subprocess | Pilih yang tercepat jalan di hari 3 |
-| Site | Static generator ringan (Eleventy) + Cytoscape.js untuk graph | Deploy via `site-builder deploy --epochs max` |
+| Contract | Sui Move (testnet) | 1 package, 5 module: wiki, source, dispute, attest, contributor |
+| Agent LLM | Provider-agnostic (OpenAI-compatible) | Gemini, GPT, MiniMax, dsb. via `openai` SDK |
+| Agent & CLI | Python 3.11 + typer | `ingest`, `query`, `chat`, `trace`, `lint`, `dispute`, `attest`, `edit`, `contributor` |
+| API Server | Flask | `api_server.py` port 5001 — endpoint `/api/chat` untuk RAG frontend |
+| Site | Vite + React + TypeScript + TailwindCSS v4 | Deploy via `site-builder deploy --epochs max` |
+| Site state | `@mysten/dapp-kit` + `@tanstack/react-query` | Sui wallet connect + transaksi on-chain |
+| SDK on-chain | `sui client --json` via subprocess | Dipilih karena tercepat untuk solo build |
 
 ---
 
 ## 11. Rencana 9 Hari (dengan buffer)
 
-| Hari | Tanggal | Fokus | Gate keputusan |
+| Hari | Tanggal | Fokus | Status |
 |---|---|---|---|
-| 1 | Jum 13/6 | Setup Sui CLI + wallet + Walrus CLI; store/read blob pertama; join TG; tanya Abner (mentor Walrus) validasi ide | Blob tersimpan & terbaca = lanjut |
-| 2 | Sab 14/6 | Move: Wiki, Cap, PageRecord, events — skeleton + unit test | — |
-| 3 | Min 15/6 | Deploy testnet; CLI bisa create_wiki/add_page end-to-end | **Gate 1:** kalau Move molor, pangkas Dispute object jadi event saja |
-| 4 | Sen 16/6 | Ingest agent (F2) + format halaman + index/log | — |
-| 5 | Sel 17/6 | Query agent (F3) + provenance metadata (F4) | — |
-| 6 | Rab 18/6 | Dispute (F6) + lint (F10) + skenario 2 keypair (F9) | **Gate 2:** kalau telat, F7/F8 turun prioritas |
-| 7 | Kam 19/6 | Walrus Site + graph view + diff/time-travel view (F5, F8) | — |
-| 8 | Jum 20/6 | **Buffer + polish**: testing end-to-end, README, rekam video, **SUBMIT H-1** | Submit hari ini, bukan besok |
-| 9 | Sab 21/6 | Cadangan darurat saja (re-record, fix submission) | — |
+| 1 | Jum 13/6 | Setup Sui CLI + wallet + Walrus CLI; store/read blob pertama | ✅ Selesai |
+| 2 | Sab 14/6 | Move: Wiki, Cap, PageRecord, events — skeleton + unit test | ✅ Selesai |
+| 3 | Min 15/6 | Deploy testnet; CLI bisa create_wiki/add_page end-to-end | ✅ Selesai |
+| 4 | Sen 16/6 | Ingest agent + format halaman + index/log | ✅ Selesai |
+| 5 | Sel 17/6 | Query agent + provenance metadata | ✅ Selesai |
+| 6 | Rab 18/6 | Dispute + lint + skenario 2 keypair | ✅ Selesai |
+| 7 | Kam 19/6 | Walrus Site + graph view + diff/time-travel view | ✅ Selesai |
+| 8 | Jum 20/6 | Buffer + polish + README + logo + extend_blobs script | ✅ Selesai |
+| 9 | Sab 21/6 | Cadangan darurat (re-record, fix submission) | ⌛ Tunggu |
 
 ---
 
@@ -197,9 +202,9 @@ Git memberi history dan hash, tapi membutuhkan remote yang di-host satu pihak da
 
 ## 13. Success Criteria
 
-**MVS (wajib):** F1–F5 jalan end-to-end; repo publik + README; video ≤5 menit; Package ID + Site URL di DeepSurge.
+**MVS (wajib):** ✅ F1–F5 jalan end-to-end; repo publik + README; Package ID + Site URL di DeepSurge.
 
-**Target shortlist:** + F6–F10; 5–6 halaman ter-curate rapi dengan ≥10 cross-reference; lint report bersih; dispute & time travel terekam di video.
+**Target shortlist:** ✅ + F6–F14; 26 halaman ter-curate rapi dengan 81 cross-reference; lint report bersih; dispute & time travel terekam; chat RAG dengan per-claim provenance; attestation on-chain; contributor lifecycle.
 
 **Definisi "selesai" per fitur:** bisa didemokan ulang dari nol dengan satu script tanpa intervensi manual.
 

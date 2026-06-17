@@ -15,10 +15,11 @@ Cortex menjamin **verifiable provenance**, BUKAN "verifiable truth/knowledge". J
 - `docs/ARCHITECTURE.md` — desain teknis lengkap (Move schema, format halaman, kontrak antar-komponen). **Baca sebelum menulis kode Move atau agent.**
 - `docs/TASKS.md` — breakdown task per hari + acceptance criteria
 - `docs/SETUP.md` — setup environment dari nol
+- `docs/DOCKER.md` — Docker dev container setup
 - `docs/SUI_CLI.md` — quick reference perintah `sui client` (alamat, faucet, publish, call, object)
 - `docs/DEMO_SCRIPT.md` — skrip demo 5 menit + acceptance test end-to-end
-- `docs/reference/` — handbook hackathon & research brief (read-only, konteks)
 - `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md` — spec fitur F11: wallet sign-in + provenance attestation (non-ekonomi). **Baca sebelum mengerjakan `cortex::attest` atau wallet di site.**
+- `docs/superpowers/specs/2026-06-17-cortex-chat-rag-design.md` — design spec untuk Cortex Chat RAG
 
 ## Struktur repo
 
@@ -28,16 +29,22 @@ cortex/
 ├── README.md
 ├── move/cortex/            # Sui Move package
 │   ├── Move.toml
-│   ├── sources/            # wiki.move, source.move, dispute.move
+│   ├── sources/            # wiki.move, source.move, dispute.move, attest.move, contributor.move
 │   └── tests/
 ├── agent/                  # Python: agents + CLI
-│   ├── cortex_cli/         # typer app: ingest, query, lint, snapshot, dispute
+│   ├── cortex_cli/         # typer app: ingest, query, chat, trace, lint, dispute, attest, edit, contributor
 │   ├── chain/              # wrapper pemanggilan sui client / PTB
 │   ├── walrus/             # wrapper walrus CLI (store/read)
-│   └── llm/                # Gemini prompts & parsing
-├── site/                   # Walrus Site (Eleventy + Cytoscape.js)
+│   ├── chat/               # Chat engine (RAG retriever, catalog, citations, history)
+│   ├── llm/                # LLM prompts & parsing (provider-agnostic, OpenAI-compatible)
+│   └── api_server.py       # Flask API server untuk Chat frontend (port 5001)
+├── site/                   # Walrus Site (Vite + React + TypeScript + TailwindCSS v4)
+│   ├── src/app/            # pages (Landing, Home, PageDetail, GraphView, Sources, AskCortex)
+│   │   ├── components/     # Layout, AttestPanel, DisputePanel, IngestPanel, EditPanel, ChatBubble, ...
+│   │   └── lib/            # sui.ts, chatApi.ts, chatStore.ts
 │   └── dist/               # HANYA folder ini yang di-deploy
-├── scripts/                # demo_e2e.sh, extend_blobs.sh
+├── scripts/                # demo_e2e.sh, deploy_testnet.py, extend_blobs.sh
+├── demo-sources/           # source1/2/3.txt + counter-pemulangan-jenazah.txt
 └── docs/
 ```
 
@@ -56,10 +63,19 @@ walrus read <blob_id> --context testnet
 # Agent CLI
 cd agent && python -m cortex_cli ingest <url|file>
 cd agent && python -m cortex_cli query "..."
+cd agent && python -m cortex_cli chat
 cd agent && python -m cortex_cli lint
+cd agent && python -m cortex_cli dispute raise ...
+cd agent && python -m cortex_cli dispute resolve ...
+cd agent && python -m cortex_cli attest <slug>
+cd agent && python -m cortex_cli edit <slug>
+cd agent && python -m cortex_cli contributor apply/approve/reject/revoke/list/status
+
+# API server (for Chat frontend)
+cd agent && python api_server.py
 
 # Site
-cd site && npx @11ty/eleventy                    # build ke dist/
+cd site && pnpm install && pnpm run build        # build ke dist/
 site-builder --context=testnet deploy --epochs max site/dist
 
 # Demo end-to-end (acceptance test utama)
@@ -80,7 +96,7 @@ bash scripts/demo_e2e.sh
 ## Konvensi kode
 
 - Python 3.11, typer untuk CLI, `subprocess` untuk panggil `sui client` & `walrus` (output JSON: pakai flag `--json` di sui client). Parsing JSON wajib defensif (try/except + pesan error jelas).
-- Move: satu module per concern (wiki/source/dispute), capability pattern untuk write access, event untuk semua mutasi. Test minimal per fungsi publik.
+- Move: satu module per concern (wiki/source/dispute/attest/contributor), capability pattern untuk write access, event untuk semua mutasi. Test minimal per fungsi publik.
 - Setiap task selesai → jalankan test terkait + update `docs/TASKS.md` (centang + catatan singkat).
 
 ## State proyek saat ini
@@ -93,12 +109,16 @@ bash scripts/demo_e2e.sh
 - [x] Ingest agent — `cortex ingest` end-to-end (7-step pipeline) complete
 - [x] Query + trace agent — `cortex query` + `cortex trace` with provenance citations
 - [x] Lint agent — 6 checks (broken wikilinks, orphan, claims-without-marker, markers-to-wiki, unregistered sources)
-- [x] Dispute — Agent B raise dispute with counter-source
+- [x] Dispute — Agent B raise/resolve/list dispute with counter-source
+- [x] Attest — `cortex attest` + `cortex::attest` module; any wallet can attest provenance on-chain
+- [x] Edit — `cortex edit` with --editor/--file/--content modes, update page on-chain
+- [x] Contributor lifecycle — `cortex contributor apply/approve/reject/revoke/list/status`
+- [x] Chat (RAG) — `cortex chat` (CLI) + `POST /api/chat` + Ask Cortex web page; per-claim provenance, multi-turn, session persistence
 - [x] Demo E2E — `scripts/demo_e2e.sh` (ingest A → lint → dispute B → query)
-- [x] Walrus Site — Eleventy build complete (26 pages, graph view, diff, confidence badges)
+- [x] Walrus Site — Vite + React + TypeScript + TailwindCSS v4 build complete (26 pages, graph view, diff, confidence badges, wallet connect, attest UI, dispute UI, chat UI)
 - [x] Site deployed — Object ID: `0x1e0deb8bd5b9ffa4db7dbf93b0f8fe627813c4ce104d235c51f3ccb624c33e58`
 - [x] Site live — URL: `http://qysquom1w51gupfuxenkfw3201fg32dntpmmimxgwxdknw66w.localhost:3000` (portal required)
-- [x] Chat (RAG) — `cortex chat` (CLI) + `POST /api/chat` + Ask Cortex web page; verified per-claim provenance
+- [x] API server — `agent/api_server.py` (Flask, port 5001); serves `/api/chat` for Ask Cortex frontend
 
 WikiOwnerCap (Agent A): `0x8d3bb8f4566f1040303385524cb8d8dbe26fc1ab179e4f5dc36c1103fb031d6b`
 Explorer: https://suiscan.xyz/testnet/object/0xd55c7cc26ccad850e2b549a5ec88db8983ea732823fc0c60849b1f7891f86755

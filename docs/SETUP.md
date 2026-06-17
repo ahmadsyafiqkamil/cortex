@@ -1,6 +1,8 @@
-# SETUP.md — Cortex Environment (Ubuntu 22.04+)
+# SETUP.md — Cortex Environment (Ubuntu 22.04+ / macOS + Docker)
 
-Target akhir: Sui CLI tersambung testnet dengan **dua alamat ber-SUI**, Walrus CLI bisa store/read, site-builder terpasang, Python env siap, Gemini API key aktif.
+Target akhir: Sui CLI tersambung testnet dengan **dua alamat ber-SUI**, Walrus CLI bisa store/read, site-builder terpasang, Python env siap, LLM API key aktif, Node + pnpm untuk frontend.
+
+> Alternatif cepat: pakai Docker dev container (`docs/DOCKER.md`) — semua tooling sudah terpasang di image.
 
 > ⚠️ Ekosistem Sui/Walrus bergerak cepat. Jika ada perintah yang gagal, JANGAN tebak-tebak — cek docs resmi: docs.sui.io (Sui) dan docs.wal.app (Walrus/Sites), lalu perbarui dokumen ini.
 
@@ -93,28 +95,53 @@ Deploy nanti (Hari 7): `site-builder --context=testnet deploy --epochs max site/
 ```bash
 cd agent
 python3 -m venv .venv && source .venv/bin/activate
-pip install typer rich google-genai pyyaml requests
-pip freeze > requirements.txt
+pip install -r requirements.txt
 ```
 
-## 7. Gemini API key
+## 7. LLM API key (provider-agnostic — OpenAI-compatible)
 
-1. Buat API key di Google AI Studio (aistudio.google.com).
-2. `export GEMINI_API_KEY=...` → simpan di `~/.bashrc` atau `.env` (gitignored).
-3. Smoke test: panggilan generateContent sederhana dengan model `gemini-2.5-flash`.
+1. Buat API key di provider pilihan Anda (Google AI Studio untuk Gemini, platform.openai.com untuk GPT, MiniMax, dsb).
+2. Salin `agent/.env.example` ke `agent/.env`:
+   ```
+   LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/  # contoh Gemini
+   LLM_API_KEY=...
+   LLM_MODEL=gemini-2.5-flash
+   ```
+3. Smoke test: `python -m cortex_cli llm-smoke` — verifikasi konfigurasi berfungsi.
 
-## 8. Konfigurasi proyek
+## 8. Frontend (Vite + React)
 
-Buat `agent/.cortex/config.json` (template di ARCHITECTURE §4.3). Field `package_id`, `wiki_id`, `contributor_cap` diisi setelah Task 3.2.
+```bash
+# Pastikan Node 22+ dan pnpm terpasang
+cd site
+pnpm install
+pnpm run dev          # dev server (http://localhost:5173)
+pnpm run build        # build ke dist/
+```
 
-## 9. Checklist akhir (gate Hari 1)
+## 9. API server (Chat RAG)
+
+```bash
+cd agent
+source .venv/bin/activate
+python api_server.py   # Flask di http://localhost:5001
+# Akses dari frontend: buka AskCortex di site (http://localhost:5173/app/ask)
+```
+
+## 10. Konfigurasi proyek
+
+Buat `agent/.cortex/config.json` (template di ARCHITECTURE §4.3). Field `package_id`, `wiki_id`, `contributor_cap` diisi setelah deploy.
+
+## 11. Checklist akhir (gate Hari 1)
 
 - [ ] `sui client active-env` = testnet, dua alamat ber-SUI
 - [ ] `walrus info --context testnet` sukses, saldo WAL ada
 - [ ] Smoke test store/read identik
 - [ ] `site-builder --version` jalan + sites-config.yaml terpasang
 - [ ] `python -m cortex_cli --help` jalan di venv
-- [ ] Gemini smoke test sukses
+- [ ] `python -m cortex_cli llm-smoke` sukses (provider-agnostic LLM)
+- [ ] `cd site && pnpm install && pnpm run build` sukses
+- [ ] `python api_server.py` jalan (Chat RAG API)
 - [ ] Repo GitHub publik ter-push
 
 ## Troubleshooting umum

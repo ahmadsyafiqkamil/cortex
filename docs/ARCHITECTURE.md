@@ -11,7 +11,7 @@ INGEST
   url/file
     → [1] simpan raw source ke Walrus        → raw_blob_id
     → [2] register_source on-chain            → event SourceRegistered
-    → [3] Gemini: ekstrak konsep & klaim      → draft halaman (markdown)
+    → [3] LLM: ekstrak konsep & klaim      → draft halaman (markdown)
     → [4] simpan tiap halaman ke Walrus       → page_blob_id (baru)
     → [5] add_page / update_page on-chain     → pointer mutakhir + history
     → [6] add_link per [[wikilink]]           → event LinkAdded
@@ -21,7 +21,7 @@ QUERY
   pertanyaan
     → baca PageRecord index dari chain (RPC, gratis, tanpa tx)
     → baca index.md dari Walrus → pilih halaman relevan
-    → baca page blobs → Gemini sintesis jawaban
+    → baca page blobs → LLM sintesis jawaban
     → jawaban + sitasi [halaman → raw_blob_id]
 
 LINT (Agent B, keypair berbeda)
@@ -33,6 +33,22 @@ LINT (Agent B, keypair berbeda)
 SITE
     → generator membaca chain (RPC) + Walrus (aggregator HTTP)
     → render: halaman, daftar sumber, badge dispute, graph view, diff view
+    → wallet connect (Sui dapp-kit): attest provenance, raise dispute, edit page, apply contributor
+
+CHAT (RAG)
+    → `cortex chat` CLI atau `POST /api/chat` via Flask API server (port 5001)
+    → FullCatalogRetriever: indeks semua halaman + keyword scoring
+    → ChatEngine: multi-turn conversation + per-claim provenance citations
+    → Session persistence via localStorage (frontend) + in-memory (CLI)
+
+ATTEST
+    → siapa pun (tanpa ContributorCap) bisa panggil `attest::attest_provenance`
+    → membuat ProvenanceAttestation object on-chain
+    → Site UI: wallet connect → klik "Attest" → transaksi Sui
+
+CONTRIBUTOR
+    → apply (calon kirim rationale_blob) → approve/reject (owner) → revoke (owner)
+    → dikelola oleh module `cortex::contributor`
 ```
 
 Prinsip: **Walrus = satu-satunya tempat konten hidup. Sui = pointer, identitas, koordinasi, sengketa.** Tidak ada konten di on-chain storage selain metadata kecil (nama, blob ID, alamat).
@@ -41,7 +57,7 @@ Prinsip: **Walrus = satu-satunya tempat konten hidup. Sui = pointer, identitas, 
 
 ## 2. Desain Move package
 
-Package: `cortex` — tiga module: `wiki`, `source`, `dispute`.
+Package: `cortex` — lima module: `wiki`, `source`, `dispute`, `attest`, `contributor`.
 
 ### 2.1 `cortex::wiki`
 
@@ -199,7 +215,67 @@ module cortex::dispute {
 }
 ```
 
-### 2.4 Test minimum (move/cortex/tests/)
+### 2.4 `cortex::attest`
+
+```move
+module cortex::attest {
+    /// Setiap alamat bisa membuat attestation — tanpa perlu ContributorCap.
+    public struct ProvenanceAttestation has key, store {
+        id: UID,
+        wiki_id: ID,
+        page: String,
+        page_blob: String,        // blob ID halaman yang diverifikasi
+        verifier: address,
+    }
+
+    public struct ProvenanceAttested has copy, drop {
+        attestation_id: ID, wiki_id: ID, page: String, verifier: address
+    }
+
+    /// Siapa pun bisa membuktikan bahwa provenance halaman valid.
+    public fun attest_provenance(
+        wiki: &Wiki, page: String, page_blob: String, ctx: &mut TxContext
+    );
+}
+```
+
+**Keputusan desain:** Attestation adalah objek non-ekonomi — tidak ada token, skor, atau reputasi. Hanya catatan on-chain bahwa verifier (wallet apa pun) telah memeriksa dan mengkonfirmasi provenance.
+
+### 2.5 `cortex::contributor`
+
+```move
+module cortex::contributor {
+    public struct ContributorApplication has store {
+        applicant: address,
+        rationale_blob: String,
+        status: u8,              // 0=pending, 1=approved, 2=rejected
+        created_at_ms: u64,
+    }
+
+    public struct ApplicationSubmitted has copy, drop { applicant: address }
+    public struct ApplicationApproved has copy, drop { applicant: address }
+    public struct ApplicationRejected has copy, drop { applicant: address }
+    public struct ContributorRevoked has copy, drop { contributor: address }
+
+    /// Calon kontributor mengirim aplikasi dengan rationale (blob Walrus).
+    public fun submit_application(wiki: &Wiki, rationale_blob: String, ctx: &mut TxContext);
+
+    /// Owner menyetujui aplikasi — mint ContributorCap untuk applicant.
+    public fun approve_application(
+        cap: &WikiOwnerCap, wiki: &Wiki, applicant: address, ctx: &mut TxContext
+    );
+
+    /// Owner menolak aplikasi.
+    public fun reject_application(cap: &WikiOwnerCap, wiki: &Wiki, applicant: address);
+
+    /// Owner mencabut ContributorCap kontributor.
+    public fun revoke_contributor(
+        cap: &WikiOwnerCap, wiki: &mut Wiki, contributor: address, ctx: &mut TxContext
+    );
+}
+```
+
+### 2.6 Test minimum (move/cortex/tests/)
 
 1. `create_wiki` → Wiki shared, OwnerCap dimiliki sender.
 2. `add_page` lalu `update_page` → history berisi blob lama, latest = blob baru.
@@ -207,6 +283,8 @@ module cortex::dispute {
 4. Cap dari wiki lain → abort `E_WRONG_WIKI`.
 5. `raise_dispute` dengan counter_source belum ter-register → abort.
 6. `raise_dispute` valid → Dispute shared + event ter-emit.
+7. `attest_provenance` → ProvenanceAttestation terbuat + event.
+8. Contributor: apply → approve → revoke → re-apply.
 
 ---
 
@@ -261,6 +339,9 @@ call(fn, args, keypair) -> tx_digest, created_objects
 get_page(wiki_id, slug) -> PageRecord       # via suix_getDynamicFieldObject (RPC, no tx)
 list_pages(wiki_id) -> [slug]               # suix_getDynamicFields (paginated)
 query_events(type) -> [event]               # suix_queryEvents (LinkAdded, PageUpdated, ...)
+# Tambahan: register_source, add_page, update_page, add_link, raise_dispute, resolve_dispute,
+# attest_provenance, submit_application, approve/reject_application, revoke_contributor,
+# list_disputes, list_sources, list_applications, get_application, is_contributor_revoked
 ```
 Keypair: `--client.config` atau env `SUI_CONFIG`; Agent A dan B = alamat berbeda (lihat SETUP.md).
 
@@ -272,23 +353,37 @@ Keypair: `--client.config` atau env `SUI_CONFIG`; Agent A dan B = alamat berbeda
   "wiki_id": "0x...",
   "agent_a": { "address": "0x...", "contributor_cap": "0x..." },
   "agent_b": { "address": "0x...", "contributor_cap": "0x..." },
-  "gemini_model": "gemini-2.5-flash"
+  "llm": {
+    "base_url": "...",
+    "model": "..."
+  }
 }
 ```
 
-### 4.4 Prompt Gemini (agent/llm/)
+### 4.4 Prompt LLM (agent/llm/, provider-agnostic — OpenAI-compatible)
 - `extract.md` — input: teks raw source; output: JSON `{pages: [{slug, title, claims: [{text, quote_span}], links: [slug]}]}`. Suhu rendah, JSON only.
 - `write_page.md` — input: JSON klaim + halaman lama (jika update); output: markdown sesuai format Bag. 3. WAJIB menyertakan marker `^[blob:...]` per klaim — blob id di-inject oleh kode (LLM tidak mengarang blob id; placeholder `{{SRC}}` diganti programatik).
 - `answer.md` — input: pertanyaan + isi halaman terpilih; output: jawaban + daftar sitasi terstruktur.
 
 **Aturan anti-halusinasi: LLM tidak pernah menghasilkan blob ID. Semua ID di-inject oleh kode.**
 
-### 4.5 Site (site/)
-- Build-time data fetch (Node script sebelum Eleventy): RPC → daftar halaman + disputes + events; aggregator → konten blob. Hasil = JSON data files untuk Eleventy.
-- Graph view: Cytoscape.js dari events `LinkAdded`.
-- Diff view: pilih 2 blob dari `history` → diff teks sisi-sisi (lib `diff` JS).
-- Badge merah pada halaman yang punya Dispute open + panel detail (excerpt, counter-source link, alamat penyengketa, link Sui Explorer).
-- Setiap entitas on-chain punya link explorer: `https://suiscan.xyz/testnet/object/<id>` (atau suivision).
+### 4.5 Site (site/) — Vite + React + TypeScript + TailwindCSS v4
+- Build: `pnpm run build` → Vite output ke `dist/`.
+- Data fetch (`prebuild` hook): `scripts/fetch-cortex-data.mjs` → RPC + aggregator → `src/data/cortex-data.json`.
+- Routing: React Router v7 (`createHashRouter`, hash-based untuk Walrus Sites compatibility).
+- Sui integration: `@mysten/dapp-kit` + `@mysten/sui` — SuiClientProvider + WalletProvider untuk wallet connect, transaksi attest/dispute/edit.
+- Pages: Landing, Home (wiki index), PageDetail (content + attest + dispute + edit), GraphView, Sources, AskCortex (chat RAG).
+- Components: AttestPanel, DisputePanel, DisputeNotice, EditPanel, IngestPanel, GeneratePagesModal, ApplyPanel, ContributorDashboard, ChatBubble, ChatCitations, ChatSidebar.
+- Styling: TailwindCSS v4 utility classes + custom CSS custom properties (`theme.css`). Dark theme default.
+- Icons: lucide-react.
+
+### 4.6 Chat (agent/chat/ + agent/api_server.py)
+- **Catalog (`catalog.py`):** membaca semua halaman wiki + membangun indeks keyword untuk pencarian.
+- **Retriever (`retriever.py`):** `FullCatalogRetriever` — keyword scoring untuk memilih halaman relevan.
+- **Engine (`engine.py`):** `ChatEngine.respond(history)` — multi-turn conversation, inject citations dari kode (bukan LLM).
+- **History (`history.py`):** session management in-memory untuk CLI.
+- **API Server (`api_server.py`):** Flask di port 5001, endpoint `POST /api/chat` — dipanggil oleh frontend AskCortex.
+- **Frontend store (`chatStore.ts`):** localStorage-based session persistence di browser.
 
 ---
 

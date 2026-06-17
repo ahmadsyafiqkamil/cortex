@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo unzip jq \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Node 22 (Eleventy + site tooling) ---
+# --- Node 22 (Vite + React frontend) ---
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*

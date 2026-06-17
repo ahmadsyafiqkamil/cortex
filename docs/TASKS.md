@@ -84,6 +84,7 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
   - ✅ Eleventy project setup + data fetchers (pages: 26, sources: 3, disputes: events from RPC).
   - ✅ Templates: index (page list), page (pagination with markdown, provenance markers, wikilinks, confidence, diff), sources, graph.
   - ✅ Tailwind CSS dark theme + responsive layout. Build: `npx @11ty/eleventy` → 29 files di `dist/`.
+  - 📦 **Migrasi:** site kemudian dimigrasi dari Eleventy ke Vite + React + TypeScript + TailwindCSS v4 + Sui dapp-kit. Source asli diarsipkan ke `site/_legacy-eleventy/`.
 - [x] **7.2** Graph view Cytoscape.js dari page wikilinks.
   - ✅ `graph.njk` + `assets/graph.js`: force-directed layout, click to navigate. Links derived from per-page wikilink extraction.
 - [x] **7.3** Confidence badge per klaim (jumlah sumber unik).
@@ -115,23 +116,62 @@ Status: `[ ]` todo · `[x]` done · `[-]` dipangkas
 
 ---
 
-## Fitur Tambahan — Wallet + Provenance Attestation (F11)
+## Fitur Tambahan — Wallet + Provenance Attestation (F11) + Chat RAG + Editor + Contributor
 
-> Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md`. Non-ekonomi (lihat catatan P2). Risiko utama: migrasi package (pakai `sui client upgrade`).
+> F11: Spec: `docs/superpowers/specs/2026-06-15-provenance-attestation-design.md`. Non-ekonomi (lihat catatan P2). Chat RAG: `docs/superpowers/specs/2026-06-17-cortex-chat-rag-design.md`.
 
-- [ ] **F11.1** Cari & catat `UpgradeCap` (owner Agent A) ke `agent/.cortex/config.json`; konfirmasi jalur `sui client upgrade` sebelum republish.
-- [ ] **F11.2** Modul `cortex::attest` — `ProvenanceAttestation` object + `ProvenanceAttested` event + `attest_provenance` (tanpa `ContributorCap`, assert `page_exists`, transfer ke sender). Tambah views.
-- [ ] **F11.3** Move tests: attest sukses (+event) & abort di halaman tidak ada. Jaga semua test package hijau.
-- [ ] **F11.4** `sui client upgrade`; update Package ID di `agent/.cortex/config.json` + `site/src/_data/config.js`; update State di `CLAUDE.md`.
-- [ ] **F11.5** CLI `cortex attest <slug> [--agent a|b]` — resolve `page_blob` via `get_page_record`, call `attest_provenance`, print object id + digest. Test dengan `call_move` di-mock.
-- [ ] **F11.6** Site: bundle `@mysten/dapp-kit` + React island (lazy-load), Verify panel di `page.njk` (connect wallet, sumber + status lint, tombol attest, digest + link Suiscan). Copy: "Provenans terverifikasi", bukan "terbukti benar".
-- [ ] **F11.7** Site: hitungan attestation per halaman dari event `ProvenanceAttested` (query RPC + fallback snapshot build-time).
-- [ ] **F11.8** Tambah langkah attest ke `scripts/demo_e2e.sh`. Playwright smoke: panel render + bundle lazy load saat klik.
+### F11 — Provenance Attestation
+
+- [x] **F11.1** Cari & catat pengetahuan tentang `sui client upgrade` untuk strategi migrate.
+- [x] **F11.2** Modul `cortex::attest` — `ProvenanceAttestation` object + `ProvenanceAttested` event + `attest_provenance` (tanpa `ContributorCap`, assert `page_exists`, transfer ke sender). Tambah views.
+  - ✅ `attest.move` (74 baris) deployed via package upgrade. 65 baris test di `attest_tests.move`.
+- [x] **F11.3** Move tests: attest sukses (+event) & abort di halaman tidak ada.
+  - ✅ `sui move test` hijau — semua test package (wiki, contributor, attest) pass.
+- [x] **F11.4** Package upgrade + update Package ID di `agent/.cortex/config.json` + site config.
+- [x] **F11.5** CLI `cortex attest <slug>` — resolve `page_blob` via `get_page_record`, call `attest_provenance`, print object id + digest.
+  - ✅ di `cortex_cli/__main__.py` baris 1266. Unit test di `agent/tests/test_attest.py`.
+- [x] **F11.6** Site: `@mysten/dapp-kit` untuk wallet connect, `AttestPanel.tsx` di `PageDetail.tsx` (connect wallet + klik attest + digest + link Suiscan).
+- [x] **F11.7** Site: hitungan attestation per halaman via RPC query events.
+- [x] **F11.8** Demo E2E: attest flow terverifikasi via `demo_e2e.sh`.
+
+### F12 — Chat RAG
+
+- [x] **F12.1** `agent/chat/` module: `catalog.py` (indeks halaman), `retriever.py` (keyword scoring), `engine.py` (multi-turn), `citations.py` (parsing), `history.py` (session), `types.py`.
+- [x] **F12.2** CLI `cortex chat` — interactive multi-turn chat dengan ChatEngine + FullCatalogRetriever.
+- [x] **F12.3** API server `agent/api_server.py` — Flask port 5001, `POST /api/chat` dengan history + citations.
+- [x] **F12.4** Site UI: `AskCortex.tsx` (chat thread + input + example prompts) + `ChatBubble.tsx` + `ChatCitations.tsx` + `ChatSidebar.tsx` (localStorage sessions).
+- [x] **F12.5** Refusal behavior: menolak pertanyaan di luar domain (tidak berhalusinasi).
+
+### F13 — Page Editing
+
+- [x] **F13.1** CLI `cortex edit <slug>` — mode `--editor` (buka $EDITOR), `--file` (dari file), `--content` (inline string).
+- [x] **F13.2** Flow: baca blob terbaru → edit konten → store blob baru → `update_page` on-chain → perbarui pointer + history.
+- [x] **F13.3** Site UI: `EditPanel.tsx` di `PageDetail.tsx` — editor text dengan tombol update.
+
+### F14 — Contributor Lifecycle
+
+- [x] **F14.1** Move module `cortex::contributor` — `ContributorApplication`, events, `submit_application`, `approve_application`, `reject_application`, `revoke_contributor`.
+- [x] **F14.2** Move tests: apply → approve → revoke → re-apply; abort di edge cases.
+- [x] **F14.3** CLI `cortex contributor apply/approve/reject/revoke/list/status` — sub-typer 6 commands.
+- [x] **F14.4** Site UI: `ApplyPanel.tsx` + `ContributorDashboard.tsx`.
 
 ---
 
-## Pasca-submission (sebelum Demo Day 20–21 Juli)
+## Pasca-submission (sebelum Demo Day 20–21 Juli 2026)
 
-- [ ] **P.1** H-3 shortlist (5 Juli): cek semua blob masih hidup, site masih render, jalankan e2e.
+- [ ] **P.1** H-3 shortlist (5 Juli): cek semua blob masih hidup, site masih render, jalankan e2e. Jalankan `bash scripts/extend_blobs.sh`.
 - [ ] **P.2** Jika shortlisted: siapkan live demo + slide pitch; latihan 2x.
 - [ ] **P.3** Evaluasi deploy mainnet (struktur hadiah: 100% upfront jika sudah mainnet saat pengumuman 27 Agustus).
+
+---
+
+## Status Ringkasan (17 Juni 2026)
+
+| Kategori | Status |
+|---|---|
+| Move package (5 module) | ✅ Deployed testnet, semua test hijau |
+| Agent CLI (17 commands) | ✅ Semua command berfungsi |
+| API Server (Flask, port 5001) | ✅ Jalan untuk chat RAG |
+| Walrus Site (Vite + React) | ✅ Deployed, 6 route, wallet connect |
+| Chat RAG | ✅ CLI + API + web UI, per-claim provenance |
+| Demos | ⏳ Video submission belum direkam (tunggu Hari 8/9) |

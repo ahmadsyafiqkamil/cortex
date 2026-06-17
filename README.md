@@ -38,19 +38,22 @@ no shared server.
 ## Features
 
 | Feature | Status |
-|---|---|
+|---|---|---|
 | **Multi-agent wiki** — Agent A (ingest) + Agent B (lint/dispute) on same wiki | Done |
 | **Verifiable provenance** — every claim traces back to raw source blob | Done |
 | **Dispute layer** — open disagreements as first-class on-chain records | Done |
 | **Lint agent** — broken wikilinks, orphan pages, anti-feedback-loop checks | Done |
+| **Chat (RAG)** — multi-turn chat with per-claim provenance citations | Done |
 | **Walrus Site** — public wiki + graph view + confidence badges + time-travel diff | Done |
 | **Time travel** — view any blob version, diff any two versions | Done |
 | **Confidence score** — unique source count per claim | Done |
+| **Provenance attestation** — wallet sign-in + on-chain attest (F11) | Done |
+| **Contributor lifecycle** — apply / approve / reject / revoke on-chain | Done |
 
 ## Quick start
 
 ```bash
-# Prerequisites: sui >= 1.73, walrus, site-builder, Python 3.11+, Node 22+
+# Prerequisites: sui >= 1.73, walrus, site-builder, Python 3.11+, Node 22+, pnpm
 
 # Agent CLI
 cp agent/.env.example agent/.env    # LLM_BASE_URL + LLM_API_KEY + LLM_MODEL
@@ -59,12 +62,21 @@ cd agent && python -m pip install -r requirements.txt
 # Commands
 python -m cortex_cli ingest <url|file>              # Ingest a raw source (Agent A)
 python -m cortex_cli query "your question"          # Ask with provenance citations
+python -m cortex_cli chat                            # Multi-turn RAG chat (in-memory session)
 python -m cortex_cli trace <slug> "<claim>"         # Trace claim → raw source
 python -m cortex_cli lint                           # Quality checks (read-only)
-python -m cortex_cli dispute raise                  # File dispute (Agent B)
+python -m cortex_cli dispute raise ...              # File dispute (Agent B)
+python -m cortex_cli dispute resolve ...            # Resolve/reject dispute
+python -m cortex_cli dispute list                   # List disputes
+python -m cortex_cli attest <slug>                  # Attest provenance on-chain
+python -m cortex_cli edit <slug>                    # Edit a wiki page
+python -m cortex_cli contributor apply/approve/...  # Contributor lifecycle
+
+# API server (for Chat frontend)
+cd agent && python api_server.py                    # Runs on http://localhost:5001
 
 # Site (build only; deploy needs WAL tokens)
-cd site && npm install && npx @11ty/eleventy        # Build to dist/
+cd site && pnpm install && pnpm run build           # Build to dist/
 # site-builder --context=testnet deploy --epochs max site/dist
 
 # End-to-end test
@@ -75,17 +87,19 @@ bash scripts/demo_e2e.sh
 
 ```
 cortex/
-├── move/cortex/            # Sui Move package (wiki.move, source.move, dispute.move)
+├── move/cortex/            # Sui Move package (wiki.move, source.move, dispute.move, attest.move, contributor.move)
 ├── agent/                  # Python agents + CLI
-│   ├── cortex_cli/         # ingest, query, trace, lint, dispute
+│   ├── cortex_cli/         # ingest, query, chat, trace, lint, dispute, attest, edit, contributor
 │   ├── chain/              # sui client wrapper
 │   ├── walrus/             # walrus CLI wrapper
-│   └── llm/                # LLM prompts & parsing
-├── site/                   # Walrus Site (Eleventy + Cytoscape.js)
-│   ├── src/_data/          # Data fetchers (chain RPC + Walrus)
+│   ├── chat/               # Chat engine (RAG retriever, catalog, citations)
+│   ├── llm/                # LLM prompts & parsing (provider-agnostic)
+│   └── api_server.py       # Flask API server for Chat frontend (port 5001)
+├── site/                   # Walrus Site (Vite + React + TypeScript + TailwindCSS v4)
+│   ├── src/app/            # pages, components, lib
 │   └── dist/               # Build output (deploy folder)
 ├── scripts/                # demo_e2e.sh, deploy scripts
-└── docs/                   # PRD, architecture, tasks, demo script
+└── docs/                   # PRD, architecture, tasks, demo script, setup, docker, sui-cli
 ```
 
 ## Deployment
@@ -109,4 +123,6 @@ cortex/
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Technical design (Move schema, page format, component contracts) |
 | [docs/TASKS.md](docs/TASKS.md) | Day-by-day task breakdown + acceptance criteria |
 | [docs/SETUP.md](docs/SETUP.md) | Environment setup from scratch |
+| [docs/DOCKER.md](docs/DOCKER.md) | Docker dev container setup |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 5-minute demo script + acceptance test |
+| [docs/SUI_CLI.md](docs/SUI_CLI.md) | Quick reference for sui client commands |
