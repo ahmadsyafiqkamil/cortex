@@ -31,6 +31,12 @@ export default defineConfig({
     },
   },
 
+  server: {
+    proxy: {
+      '/api': 'http://cortex-api:5001',
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
 

@@ -1,7 +1,7 @@
 # Portal configuration for testnet
 network: testnet
 original_package_id: "0xf99aee9f21493e1590e7e5a9aea6f343a1f381031a04a732724871fc294be799"
-landing_page_oid_b36: "1p3repujoigwcqrk0w4itsxm7hs7xjl4hwgt3t0szn6evad83q"
+landing_page_oid_b36: "3o15n9up5c47y2v8915ku7ew89scuzez4krcnqt8y7dz9pkqkl"
 domain_name_length: 21
 b36_domain_resolution: true
 bring_your_own_domain: false

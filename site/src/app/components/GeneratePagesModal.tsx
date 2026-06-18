@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { Play, X, Copy, Check, RefreshCw } from "lucide-react";
 
-const API_BASE = "http://localhost:5001";
+const API_BASE = "";
 
 type IngestStatus = "idle" | "sending" | "running" | "done" | "error";
 

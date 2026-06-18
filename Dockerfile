@@ -67,5 +67,12 @@ RUN mkdir -p /home/cortex/.config/walrus \
 
 WORKDIR /workspace
 
+# --- Python venv for agent deps (avoids PEP 668 on ubuntu 24.04) ---
+# Copied from host at build time so VENV is baked into the image.
+COPY agent/requirements.txt /tmp/cortex-requirements.txt
+RUN python3 -m venv /home/cortex/venv \
+    && /home/cortex/venv/bin/pip install --no-cache-dir -r /tmp/cortex-requirements.txt
+ENV PATH="/home/cortex/venv/bin:${PATH}"
+
 # Keep the container alive for `docker compose exec` (dev container pattern).
 CMD ["sleep", "infinity"]

@@ -18,7 +18,7 @@ export interface ChatResponse {
   error: string | null
 }
 
-const API_BASE = "http://localhost:5001"
+const API_BASE = ""
 
 export async function sendChat(messages: ChatMessage[]): Promise<ChatResponse> {
   const res = await fetch(`${API_BASE}/api/chat`, {

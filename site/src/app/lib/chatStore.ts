@@ -43,6 +43,17 @@ export function saveActiveId(id: string | null): void {
   }
 }
 
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 function deriveTitle(turns: Turn[]): string {
   const firstUser = turns.find((t) => t.role === 'user')
   if (!firstUser) return 'New Chat'
@@ -52,7 +63,7 @@ function deriveTitle(turns: Turn[]): string {
 
 export function createSession(): ChatSession {
   const session: ChatSession = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     title: 'New Chat',
     turns: [],
     createdAt: Date.now(),

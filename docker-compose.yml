@@ -2,6 +2,7 @@
 #
 # Services:
 #   cortex-dev     — dev container (sui, walrus, site-builder, python, node)
+#   cortex-api     — Flask API server (ingest, chat, health) on port 5001
 #   walrus-portal  — Walrus Sites portal (serves testnet sites)
 #   nginx          — reverse proxy on port 3000 (rewrites host -> portal)
 #
@@ -29,6 +30,28 @@ services:
       - walrus-config:/home/cortex/.config/walrus
     entrypoint: ["/workspace/scripts/dev-entrypoint.sh"]
     command: ["sleep", "infinity"]
+    networks:
+      - cortex-net
+
+  cortex-api:
+    build:
+      context: .
+      args:
+        GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    image: cortex-dev:latest
+    container_name: cortex-api
+    working_dir: /workspace/agent
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./:/workspace
+      - sui-config:/home/cortex/.sui
+      - walrus-config:/home/cortex/.config/walrus
+    entrypoint: ["/workspace/scripts/dev-entrypoint.sh"]
+    command: ["python3", "api_server.py"]
+    ports:
+      - "5001:5001"
     networks:
       - cortex-net
 
