@@ -30,7 +30,7 @@ function parseBlobIdFromResponse(text: string): string | null {
   }
 }
 
-export function IngestPanel() {
+export function IngestPanel({ onRegistered, embedded }: { onRegistered?: () => void; embedded?: boolean }) {
   const account = useCurrentAccount();
   const client = useSuiClient();
     const { mutate: signAndExecute, isPending } =
@@ -172,23 +172,30 @@ export function IngestPanel() {
           setBlobId("");
           setTitle("");
           setOriginUrl("");
+          onRegistered?.();
         },
       }
     );
   };
 
-  return (
-    <div className="border border-green-800 bg-black p-6">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-        <h3 className="font-mono text-xs uppercase tracking-wider text-green-400">
-          REGISTER_SOURCE
-        </h3>
-      </div>
+  const outerCls = embedded ? "p-6" : "border border-green-800 bg-black p-6";
 
-      <p className="font-mono text-xs text-zinc-500 mb-5">
-        REGISTER_A_RAW_SOURCE_ALREADY_STORED_ON_WALRUS_AFTER_WALRUS_STORE_RUN_CORTEX_INGEST_FROM_CLI
-      </p>
+  return (
+    <div className={outerCls}>
+      {!embedded && (
+        <>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+            <h3 className="font-mono text-xs uppercase tracking-wider text-green-400">
+              REGISTER_SOURCE
+            </h3>
+          </div>
+
+          <p className="font-mono text-xs text-zinc-500 mb-5">
+            REGISTER_A_RAW_SOURCE_ALREADY_STORED_ON_WALRUS_AFTER_WALRUS_STORE_RUN_CORTEX_INGEST_FROM_CLI
+          </p>
+        </>
+      )}
 
       {txDigest ? (
         <div className="mb-5 border border-green-900 p-3 bg-green-950/30">

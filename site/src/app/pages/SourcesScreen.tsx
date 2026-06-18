@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ExternalLink, FileText, Play, RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, Play, RefreshCw, Plus, X } from "lucide-react";
 import {
   ConnectButton,
   useCurrentAccount,
@@ -8,6 +8,7 @@ import {
 import { sources, type Source } from "../data/mock";
 import { PACKAGE_ID, WIKI_ID, AGGREGATOR_URL } from "../lib/sui";
 import { GeneratePagesModal } from "../components/GeneratePagesModal";
+import { IngestPanel } from "../components/IngestPanel";
 
 export function SourcesScreen() {
   const account = useCurrentAccount();
@@ -18,6 +19,7 @@ export function SourcesScreen() {
   const [liveSources, setLiveSources] = useState<Source[] | null>(null);
   const [livePageSourceMap, setLivePageSourceMap] = useState<Map<string, { slug: string }[]>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
+  const [showIngestPanel, setShowIngestPanel] = useState(false);
 
   const checkContributor = useCallback(async () => {
     if (!account) {
@@ -140,7 +142,7 @@ export function SourcesScreen() {
               <span className="w-2 h-2 bg-white" />
               REGISTERED_SOURCES
             </h2>
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
               <span className="font-mono text-[10px] text-zinc-500 uppercase">
                 COUNT: {displaySources.length}
               </span>
@@ -153,8 +155,40 @@ export function SourcesScreen() {
                 <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
                 REFRESH
               </button>
+              {isContributor && (
+                <button
+                  onClick={() => setShowIngestPanel(!showIngestPanel)}
+                  className={`font-mono text-[10px] uppercase tracking-wider border px-2 py-0.5 transition-colors flex items-center gap-1 ${
+                    showIngestPanel
+                      ? "border-green-700 text-green-400 bg-green-950"
+                      : "border-green-800 text-green-500 hover:border-green-500 hover:text-green-400"
+                  }`}
+                >
+                  <Plus className="w-3 h-3" />
+                  {showIngestPanel ? "CLOSE" : "ADD_SOURCE"}
+                </button>
+              )}
             </div>
           </div>
+
+          {showIngestPanel && isContributor && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70">
+              <div className="border border-green-800 bg-black w-full max-w-2xl mx-4">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
+                  <h3 className="font-mono text-xs uppercase tracking-wider text-green-400 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    ADD_SOURCE
+                  </h3>
+                  <button onClick={() => setShowIngestPanel(false)} className="text-zinc-500 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="max-h-[80vh] overflow-y-auto">
+                  <IngestPanel embedded onRegistered={() => { setShowIngestPanel(false); fetchLiveSources(); }} />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col">
             {sourceWithPages.map((source, i) => (
