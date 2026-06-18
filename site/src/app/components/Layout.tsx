@@ -31,7 +31,8 @@ export function Layout() {
       if (hasCap && !revoked) setContributorStatus("contributor");
       else if (revoked) setContributorStatus("revoked");
       else setContributorStatus("non_contributor");
-    } catch {
+    } catch (e) {
+      console.error("[Layout] fetchContributorStatus failed:", e);
       setContributorStatus("non_contributor");
     }
   }, [account, client]);
@@ -150,8 +151,10 @@ async function checkOwnsContributorCap(
       filter: { StructType: `${packageId}::wiki::ContributorCap` },
       options: { showType: true },
     });
+    console.log("[Layout] checkOwnsContributorCap result:", objs, { packageId, address, length: objs.data?.length });
     return (objs.data?.length ?? 0) > 0;
-  } catch {
+  } catch (e) {
+    console.error("[Layout] checkOwnsContributorCap failed:", e, { packageId, address });
     return false;
   }
 }
@@ -170,7 +173,8 @@ async function checkIsRevoked(
       if (name === revKey) return true;
     }
     return false;
-  } catch {
+  } catch (e) {
+    console.error("[Layout] checkIsRevoked failed:", e);
     return false;
   }
 }

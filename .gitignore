@@ -29,3 +29,7 @@ move/cortex/build/
 
 .cursor/
 opencode.json
+site/.pnpm-store/
+
+pnpm-lock.yaml
+pnpm-workspace.yaml

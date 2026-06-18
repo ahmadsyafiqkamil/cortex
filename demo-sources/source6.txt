@@ -1,0 +1,60 @@
+Mekanisme Pengaduan Nasabah Perbankan ke Otoritas Jasa Keuangan (OJK)
+
+Setiap nasabah perbankan memiliki hak untuk mengajukan pengaduan apabila merasa dirugikan oleh tindakan bank yang tidak sesuai dengan ketentuan. OJK sebagai otoritas pengawas sektor jasa keuangan menyediakan mekanisme pengaduan yang terstruktur dan terukur.
+
+Landasan Hukum:
+
+- Undang-Undang No. 21 Tahun 2011 tentang Otoritas Jasa Keuangan
+- POJK No. 1/POJK.07/2013 tentang Perlindungan Konsumen Sektor Jasa Keuangan
+- POJK No. 18/POJK.07/2018 tentang Layanan Pengaduan Konsumen di Sektor Jasa Keuangan
+
+Jenis Pengaduan yang Dapat Diajukan:
+
+1. Sengketa transaksi keuangan (selisih saldo, transaksi tidak dikenal)
+2. Pelanggaran ketentuan produk atau layanan bank
+3. Praktik penagihan yang tidak sesuai aturan (debt collector, intimidasi)
+4. Pembebanan biaya yang tidak transparan atau tidak sesuai kesepakatan
+5. Penolakan klaim asuransi yang terkait dengan produk bank
+6. Pelanggaran kerahasiaan data nasabah
+7. Gagal bayar atau wanprestasi oleh bank
+
+Alur Pengaduan: Sistem Bertingkat (Three-Tier System)
+
+Tahap 1: Pengaduan Internal ke Bank
+
+1. Nasabah menyampaikan pengaduan secara tertulis kepada bank melalui:
+   - Kantor cabang terdekat
+   - Call center resmi bank
+   - Email pengaduan bank
+2. Nasabah melampirkan dokumen pendukung (fotokopi identitas, bukti transaksi, kronologi kejadian)
+3. Bank wajib menerima dan mencatat setiap pengaduan dalam sistem internal
+4. Bank wajib memberikan tanggapan tertulis dalam waktu 20 hari kerja
+5. Jika nasabah tidak puas, dapat melanjutkan ke Tahap 2
+
+Tahap 2: Pengaduan ke OJK
+
+1. Nasabah mengajukan pengaduan ke OJK melalui:
+   - Aplikasi Pengaduan Konsumen OJK (APPK) di website resmi OJK
+   - Telepon ke kontak OJK 157 (1-500-XXX)
+   - Surat elektronik ke konsumen@ojk.go.id
+   - Surat tertulis ke kantor OJK terdekat
+2. Persyaratan pengaduan ke OJK:
+   - Nasabah telah menempuh pengaduan internal ke bank dan memiliki bukti tanggapan
+   - Pengaduan bersifat keperdataan (sengketa antara nasabah dan bank)
+   - Kerugian finansial maksimal Rp 500 juta (untuk sengketa di atas Rp 500 juta, disarankan jalur pengadilan)
+   - Dokumen lengkap: kronologi, bukti transaksi, salinan pengaduan ke bank, salinan tanggapan bank
+3. OJK memproses pengaduan dalam waktu 30 hari kerja
+4. OJK berperan sebagai fasilitator untuk mempertemukan nasabah dan bank
+
+Tahap 3: Penyelesaian di Luar Pengadilan
+
+1. Jika mediasi OJK tidak mencapai kesepakatan, nasabah dapat menempuh:
+   - Lembaga Alternatif Penyelesaian Sengketa (LAPS) Sektor Jasa Keuangan
+   - Badan Arbitrase Nasional Indonesia (BANI)
+   - Pengadilan Negeri setempat
+
+Informasi dan Kontak:
+
+- Kontak OJK: 157 (telepon) | konsumen@ojk.go.id | www.ojk.go.id
+- Layanan pengaduan tersedia dalam Bahasa Indonesia dan Bahasa Inggris
+- Tidak ada biaya untuk pengaduan di semua tahap

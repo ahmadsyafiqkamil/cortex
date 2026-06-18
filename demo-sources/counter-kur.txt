@@ -1,0 +1,58 @@
+# Kesenjangan Program KUR: Antara Kebijakan dan Praktik Lapangan
+
+## Ringkasan Temuan
+
+Laporan ini menyajikan hasil investigasi independen terhadap pelaksanaan
+program Kredit Usaha Rakyat (KUR) di 14 kabupaten/kota di Indonesia selama
+2023-2024. Berdasarkan wawancara dengan 93 pelaku UMKM, 17 mantan pegawai
+bank penyalur, serta analisis 112 dokumen pengajuan KUR, ditemukan adanya
+kesenjangan serius antara ketentuan resmi dan realitas di lapangan.
+
+## Biaya Siluman (Unofficial Fees)
+
+Berbeda dengan ketentuan bahwa KUR bebas biaya provisi, administrasi, dan
+appraisal, mayoritas responden (71 dari 93) melaporkan diminta membayar
+biaya tidak resmi:
+
+- "Biaya survei lapangan": Rp 150.000 - Rp 500.000
+- "Biaya percepatan proses": Rp 500.000 - Rp 2.000.000
+- "Uang administrasi": Rp 250.000 - Rp 750.000
+- "Biaya konsultan KUR": Rp 1.000.000 - Rp 5.000.000
+
+Dalam 58 dari 71 kasus, pembayaran dilakukan secara tunai tanpa kwitansi.
+Responden yang menolak membayar melaporkan pengajuannya "ditahan" tanpa
+kejelasan status selama berminggu-minggu.
+
+## Agunan Terselubung untuk KUR Mikro
+
+Meskipun aturan menyatakan KUR Mikro hingga Rp 100 juta tidak memerlukan
+agunan tambahan, 47 responden pengaju KUR Mikro melaporkan diminta
+menyerahkan:
+
+- Sertifikat tanah atau BPKB kendaraan: 28 kasus
+- Fotokopi yang "ditahan" petugas bank: 14 kasus
+- Surat kuasa menjual aset yang ditandatangani di awal: 5 kasus
+
+## Penolakan Sepihak Tanpa Justifikasi
+
+Dari 112 dokumen pengajuan KUR:
+- 34 pengajuan ditolak dengan alasan "tidak memenuhi syarat" tanpa
+  penjelasan spesifik titik ketidaklulusan
+- 19 pengajuan ditolak setelah proses berjalan lebih dari 30 hari kerja
+  (melampaui batas 14 hari yang ditetapkan)
+- 11 pengajuan ditolak karena usaha dianggap "tidak prospektif" meskipun
+  memiliki omzet stabil dan telah berjalan lebih dari 2 tahun
+
+## Rekomendasi
+
+1. Pembentukan kanal pengaduan KUR independen di luar bank penyalur
+2. Penetapan sanksi tegas bagi oknum bank yang memungut biaya tidak resmi,
+   termasuk pencabutan status bank penyalur
+3. Transparansi status pengajuan secara real-time melalui sistem digital
+   yang dapat diakses nasabah
+4. Audit berkala oleh BPK dan OJK terhadap penyaluran KUR di setiap
+   bank penyalur
+
+---
+*Sumber: Investigasi Independen LSM Lembaga Studi Keuangan Rakyat, Maret 2025*
+*Metodologi: Wawancara mendalam, mystery shopping, analisis dokumen pengajuan KUR*

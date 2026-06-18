@@ -1,6 +1,4 @@
 # Portal configuration for testnet
-# Ref: https://raw.githubusercontent.com/MystenLabs/walrus-sites/refs/heads/mainnet/portal/server/portal-config.testnet.example.yaml
-
 network: testnet
 original_package_id: "0xf99aee9f21493e1590e7e5a9aea6f343a1f381031a04a732724871fc294be799"
 landing_page_oid_b36: "1p3repujoigwcqrk0w4itsxm7hs7xjl4hwgt3t0szn6evad83q"

@@ -1,0 +1,54 @@
+Prosedur Restrukturisasi Kredit Nasabah Terdampak Bencana Berdasarkan Regulasi OJK
+
+Otoritas Jasa Keuangan (OJK) menerbitkan regulasi khusus yang memberikan keringanan kredit bagi nasabah perbankan yang terdampak bencana alam. Ketentuan ini tertuang dalam POJK No. 45/POJK.03/2017 dan diperkuat dengan POJK No. 11/POJK.03/2020 tentang Stimulus Perekonomian Nasional.
+
+Kategori Bencana yang Diakui:
+
+1. Bencana alam (gempa bumi, tsunami, banjir bandang, tanah longsor, erupsi gunung berapi)
+2. Bencana non-alam (pandemi, kebakaran besar, kegagalan teknologi)
+3. Bencana sosial (konflik bersenjata, kerusuhan massal)
+
+Bentuk-Bentuk Restrukturisasi yang Tersedia:
+
+1. Penurunan Suku Bunga Kredit
+   Bank wajib menurunkan suku bunga kredit nasabah terdampak hingga batas yang disepakati bersama, dapat mencapai 0% untuk periode tertentu.
+
+2. Perpanjangan Jangka Waktu Kredit
+   Jangka waktu pelunasan kredit dapat diperpanjang sesuai kemampuan nasabah dengan tetap mempertimbangkan kondisi keuangan bank.
+
+3. Pengurangan Tunggakan Pokok
+   Bank dapat mengurangi jumlah tunggakan pokok kredit bagi nasabah yang mengalami kerugian material signifikan akibat bencana.
+
+4. Pengurangan Tunggakan Bunga
+   Tunggakan bunga yang terakumulasi selama masa bencana dapat dikurangi atau dihapuskan sebagian atau seluruhnya.
+
+5. Penambahan Fasilitas Kredit Baru
+   Nasabah terdampak berhak mengajukan kredit tambahan untuk pemulihan usaha dengan suku bunga khusus.
+
+6. Konversi Kredit Menjadi Penyertaan Modal Sementara (PKMS)
+   Untuk nasabah badan usaha, kredit dapat dikonversi menjadi penyertaan modal sementara hingga kondisi usaha pulih.
+
+Persyaratan Pengajuan Restrukturisasi:
+
+1. Nasabah merupakan penduduk di wilayah yang ditetapkan sebagai daerah bencana oleh pemerintah daerah
+2. Usaha atau aset nasabah mengalami kerusakan langsung akibat bencana
+3. Nasabah memiliki riwayat pembayaran lancar sebelum terjadinya bencana (kolektibilitas 1 atau 2)
+4. Melengkapi dokumen pendukung:
+   - Surat keterangan terdampak bencana dari pemerintah daerah (minimal tingkat kelurahan)
+   - Dokumentasi kerusakan usaha atau aset (foto/video)
+   - Surat permohonan restrukturisasi yang ditandatangani nasabah
+   - Bukti identitas diri dan dokumen perjanjian kredit
+
+Prosedur Pengajuan:
+
+1. Nasabah mengajukan permohonan restrukturisasi ke bank penyalur kredit selambat-lambatnya 3 bulan setelah penetapan status bencana
+2. Bank melakukan verifikasi dokumen dan survei lapangan dalam waktu maksimal 10 hari kerja
+3. Bank wajib memberikan keputusan tertulis dalam waktu maksimal 30 hari kerja
+4. Jika disetujui, nasabah dan bank menandatangani addendum perjanjian kredit
+5. Bank melaporkan status restrukturisasi ke OJK melalui sistem pelaporan online
+
+Perlindungan Nasabah:
+
+- Selama proses evaluasi restrukturisasi, bank dilarang melakukan penagihan dengan cara paksa atau melakukan eksekusi agunan
+- Kualitas kredit nasabah terdampak bencana yang direstrukturisasi ditetapkan sebagai "lancar" (kolektibilitas 1)
+- Bank dilarang membebankan biaya administrasi, biaya penalti, atau biaya lainnya kepada nasabah yang mengajukan restrukturisasi bencana

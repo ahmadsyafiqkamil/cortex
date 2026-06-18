@@ -28,21 +28,25 @@ export function ContributorDashboard() {
 
   const fetchData = useCallback(async () => {
     try {
+      console.log("[Dashboard] fetchData: WIKI_ID=", WIKI_ID, "OWNER_CAP_ID=", OWNER_CAP_ID);
       const wikiObj = await client.getObject({
         id: WIKI_ID,
         options: { showContent: true },
       });
+      console.log("[Dashboard] wikiObj ok:", wikiObj.data?.content);
       const content = wikiObj.data?.content as any;
       const fields = content?.fields ?? content;
       const owner = fields?.owner ?? "";
       setOwnerAddress(owner);
 
       const dfs = await client.getDynamicFields({ parentId: WIKI_ID });
+      console.log("[Dashboard] dynamicFields count:", dfs.data?.length);
       const apps: Application[] = [];
       const revoked = new Set<string>();
 
       for (const df of dfs.data) {
         const name = (df.name as any)?.value ?? String(df.name ?? "");
+        console.log("[Dashboard] df entry: name=", name, "objectId=", df.objectId);
         if (name.startsWith("app:")) {
           try {
             const obj = await client.getObject({
