@@ -1,17 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router";
-import { ArrowRight, Clock, FileText, Activity, Hash, Layers } from "lucide-react";
+import { ArrowRight, Clock, FileText, Activity, Hash, Layers, Search } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { pages } from "../data/mock";
 import { ApplyPanel } from "../components/ApplyPanel";
 import { ContributorDashboard } from "../components/ContributorDashboard";
 
-const recentPages = [...pages]
-  .sort((a, b) => {
-    const aDate = a.versions[0]?.date ? new Date(a.versions[0].date).getTime() : 0;
-    const bDate = b.versions[0]?.date ? new Date(b.versions[0].date).getTime() : 0;
-    return bDate - aDate;
-  })
-  .slice(0, 8);
+const ITEMS_PER_PAGE = 10;
 
 const SYSTEM_STATS = [
   { label: "TOTAL_PAGES", value: pages.length.toString(), icon: <Layers className="w-4 h-4" /> },
@@ -20,7 +15,44 @@ const SYSTEM_STATS = [
   { label: "LINKS", value: String(pages.reduce((acc, p) => acc + p.links.length, 0)), icon: <Hash className="w-4 h-4" /> },
 ];
 
+function getPageNumbers(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "ellipsis")[] = [1];
+  if (current > 3) pages.push("ellipsis");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) pages.push(i);
+  if (current < total - 2) pages.push("ellipsis");
+  pages.push(total);
+  return pages;
+}
+
 export function Home() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const filteredPages = pages.filter(
+    (p) =>
+      p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.slug.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const sortedPages = [...filteredPages].sort((a, b) => {
+    const aDate = a.versions[0]?.date ? new Date(a.versions[0].date).getTime() : 0;
+    const bDate = b.versions[0]?.date ? new Date(b.versions[0].date).getTime() : 0;
+    return bDate - aDate;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedPages.length / ITEMS_PER_PAGE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedPages = sortedPages.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
+
+  const pageNumbers = getPageNumbers(safePage, totalPages);
+
   return (
     <>
     <div className="flex-1 flex p-6 max-w-[1400px] mx-auto w-full gap-6">
@@ -33,19 +65,32 @@ export function Home() {
               <span className="w-2 h-2 bg-white" />
               ALL_PAGES
             </h2>
-            <span className="font-mono text-[10px] text-zinc-500 uppercase">COUNT: {pages.length}</span>
+            <span className="font-mono text-[10px] text-zinc-500 uppercase">COUNT: {filteredPages.length} / {pages.length}</span>
+          </div>
+
+          <div className="border-b border-zinc-800 px-4 py-2">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+              <input
+                type="text"
+                placeholder="FILTER_PAGES..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                className="bg-transparent border border-zinc-800 text-xs font-mono text-white placeholder:text-zinc-600 pl-8 pr-3 py-1.5 focus:outline-none focus:border-white focus:bg-zinc-900 transition-all w-full rounded-none"
+              />
+            </div>
           </div>
 
           <div className="flex flex-col">
-            {recentPages.length > 0 ? recentPages.map((page, i) => (
+            {paginatedPages.length > 0 ? paginatedPages.map((page, i) => (
               <Link
                 key={page.slug}
                 to={`/app/wiki/${page.slug}`}
-                className={`group flex items-center justify-between px-4 py-4 hover:bg-white hover:text-black transition-colors ${i !== recentPages.length - 1 ? 'border-b border-zinc-800' : ''}`}
+                className={`group flex items-center justify-between px-4 py-4 hover:bg-white hover:text-black transition-colors ${i !== paginatedPages.length - 1 ? 'border-b border-zinc-800' : ''}`}
               >
                 <div className="flex items-start gap-4">
                   <div className="font-mono text-xs text-zinc-600 mt-0.5 group-hover:text-black transition-colors">
-                    {(i + 1).toString().padStart(2, '0')}
+                    {((safePage - 1) * ITEMS_PER_PAGE + i + 1).toString().padStart(2, '0')}
                   </div>
                   <div>
                     <h3 className="font-bold text-zinc-200 group-hover:text-black transition-colors text-lg tracking-tight">
@@ -79,10 +124,48 @@ export function Home() {
               </Link>
             )) : (
               <div className="p-8 text-center font-mono text-xs text-zinc-500 uppercase">
-                NO_PAGES_INDEXED
+                {searchQuery ? "NO_RESULTS_FOUND" : "NO_PAGES_INDEXED"}
               </div>
             )}
           </div>
+
+          {totalPages > 1 && (
+            <div className="border-t border-zinc-800 px-4 py-3 flex items-center justify-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="px-2 py-1 font-mono text-xs text-zinc-500 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors rounded-none"
+              >
+                PREV
+              </button>
+              {pageNumbers.map((n, i) =>
+                n === "ellipsis" ? (
+                  <span key={`ellipsis-${i}`} className="px-1 font-mono text-xs text-zinc-600">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={n}
+                    onClick={() => setCurrentPage(n)}
+                    className={`px-2 py-1 font-mono text-xs transition-colors rounded-none ${
+                      n === safePage
+                        ? "bg-white text-black font-bold"
+                        : "text-zinc-500 hover:text-white hover:bg-zinc-800"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="px-2 py-1 font-mono text-xs text-zinc-500 hover:text-white hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-zinc-500 transition-colors rounded-none"
+              >
+                NEXT
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
