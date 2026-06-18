@@ -11,6 +11,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -52,81 +53,93 @@ def _check_contributor(address: str) -> tuple[bool, str]:
 
 
 def _run_ingest(job_id: str, blob_id: str, title: str, address: str) -> None:
-    with _lock:
-        _jobs[job_id]["status"] = "running"
-        _jobs[job_id]["log"] = []
-
-    sys.path.insert(0, str(_AGENT_DIR))
-    from walrus.client import WalrusClient, WalrusError
-
     try:
-        walrus = WalrusClient()
-        blob_bytes = walrus.read(blob_id)
-    except WalrusError as exc:
         with _lock:
-            _jobs[job_id]["status"] = "error"
-            _jobs[job_id]["error"] = f"Failed to read blob from Walrus: {exc}"
-        return
+            _jobs[job_id]["status"] = "running"
+            _jobs[job_id]["log"] = []
 
-    with tempfile.NamedTemporaryFile(
-        mode="wb", suffix=".txt", prefix="cortex_ingest_", delete=False
-    ) as f:
-        f.write(blob_bytes)
-        tmp_path = f.name
+        sys.path.insert(0, str(_AGENT_DIR))
+        from walrus.client import WalrusClient, WalrusError
 
-    cmd = [
-        sys.executable, "-m", "cortex_cli", "ingest",
-        str(tmp_path),
-        "--blob-id", blob_id,
-        "--title", title,
-    ]
-
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        cwd=str(_AGENT_DIR),
-    )
-
-    out_lines: list[str] = []
-    try:
-        for line in proc.stdout:
-            stripped = line.rstrip("\n").rstrip("\r")
-            out_lines.append(stripped)
+        try:
+            walrus = WalrusClient()
+            blob_bytes = walrus.read(blob_id)
+        except WalrusError as exc:
             with _lock:
-                _jobs[job_id]["log"] = out_lines[-200:]  # keep last 200 lines
-    except Exception:
-        pass
+                _jobs[job_id]["status"] = "error"
+                _jobs[job_id]["error"] = f"Failed to read blob from Walrus: {exc}"
+            return
 
-    try:
-        proc.wait(timeout=600)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
-        out_lines.append("[API] TIMEOUT — process killed after 10 min")
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".txt", prefix="cortex_ingest_", delete=False
+        ) as f:
+            f.write(blob_bytes)
+            tmp_path = f.name
+
+        # Force the child to run unbuffered so Rich/console output streams
+        # line-by-line instead of flushing all at once when the process exits.
+        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        cmd = [
+            sys.executable, "-u", "-m", "cortex_cli", "ingest",
+            str(tmp_path),
+            "--blob-id", blob_id,
+            "--title", title,
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,  # line-buffered on the parent side
+            env=env,
+            cwd=str(_AGENT_DIR),
+        )
+
+        out_lines: list[str] = []
+        try:
+            # iter(readline) avoids the read-ahead buffering of `for line in f`,
+            # so each flushed line is surfaced to the poller immediately.
+            for line in iter(proc.stdout.readline, ""):
+                stripped = line.rstrip("\r\n")
+                out_lines.append(stripped)
+                with _lock:
+                    _jobs[job_id]["log"] = out_lines[-200:]  # keep last 200 lines
+        except Exception:
+            pass
+
+        try:
+            proc.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+            out_lines.append("[API] TIMEOUT — process killed after 10 min")
+            with _lock:
+                _jobs[job_id]["status"] = "error"
+                _jobs[job_id]["error"] = "Ingest timed out (10 min limit)"
+                _jobs[job_id]["log"] = out_lines[-200:]
+            Path(tmp_path).unlink(missing_ok=True)
+            return
+
+        with _lock:
+            _jobs[job_id]["log"] = out_lines[-200:]
+
+            if proc.returncode == 0:
+                pages = _extract_page_slugs(out_lines)
+                _jobs[job_id]["status"] = "done"
+                _jobs[job_id]["pages"] = pages
+            else:
+                _jobs[job_id]["status"] = "error"
+                last = "\n".join(out_lines[-20:]) or "(no output)"
+                _jobs[job_id]["error"] = (
+                    f"Exit code {proc.returncode}. Last 20 lines:\n{last}"[:2000]
+                )
+
+        Path(tmp_path).unlink(missing_ok=True)
+    except Exception as exc:
         with _lock:
             _jobs[job_id]["status"] = "error"
-            _jobs[job_id]["error"] = "Ingest timed out (10 min limit)"
-            _jobs[job_id]["log"] = out_lines[-200:]
-        Path(tmp_path).unlink(missing_ok=True)
-        return
-
-    with _lock:
-        _jobs[job_id]["log"] = out_lines[-200:]
-
-        if proc.returncode == 0:
-            pages = _extract_page_slugs(out_lines)
-            _jobs[job_id]["status"] = "done"
-            _jobs[job_id]["pages"] = pages
-        else:
-            _jobs[job_id]["status"] = "error"
-            last = "\n".join(out_lines[-20:]) or "(no output)"
-            _jobs[job_id]["error"] = (
-                f"Exit code {proc.returncode}. Last 20 lines:\n{last}"[:2000]
-            )
-
-    Path(tmp_path).unlink(missing_ok=True)
+            _jobs[job_id]["error"] = f"Internal error: {exc}"[:2000]
 
 
 def _extract_page_slugs(lines: list[str]) -> list[str]:

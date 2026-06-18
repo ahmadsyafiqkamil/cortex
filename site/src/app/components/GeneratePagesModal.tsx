@@ -22,33 +22,38 @@ interface GeneratePagesModalProps {
   onPageGenerated?: () => void;
 }
 
-function LogView({ lines }: { lines: string[] }) {
+function LogView({ lines, isActive }: { lines: string[]; isActive: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    console.log("[LogView v2] rendered, lines:", lines.length, "isActive:", isActive);
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [lines]);
-
-  if (lines.length === 0) return null;
 
   return (
     <div
       ref={ref}
       className="border border-zinc-800 bg-zinc-950 p-2 overflow-auto font-mono text-[10px] leading-relaxed max-h-64"
     >
-      {lines.map((line, i) => (
-        <div
-          key={i}
-          className={
-            line.includes("\u2713") ? "text-green-400" :
-            line.includes("error") || line.includes("Error") ? "text-red-400" :
-            line.includes("Warning") ? "text-amber-400" :
-            line.startsWith("\u2500") ? "text-zinc-600" :
-            "text-zinc-400"
-          }
-        >
-          {line || "\u00A0"}
+      {lines.length === 0 ? (
+        <div className="text-zinc-600">
+          Waiting for output...{isActive ? <span className="animate-pulse ml-0.5">_</span> : null}
         </div>
-      ))}
+      ) : (
+        lines.map((line, i) => (
+          <div
+            key={i}
+            className={
+              line.includes("\u2713") ? "text-green-400" :
+              line.includes("error") || line.includes("Error") ? "text-red-400" :
+              line.includes("Warning") ? "text-amber-400" :
+              line.startsWith("\u2500") ? "text-zinc-600" :
+              "text-zinc-400"
+            }
+          >
+            {line || "\u00A0"}
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -59,6 +64,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
   const [copied, setCopied] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wasDone = useRef(false);
+  const pollErrors = useRef(0);
 
   useEffect(() => {
     if (!open) {
@@ -92,13 +98,22 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
         }
       } catch {
-        // keep polling
+        pollErrors.current += 1;
+        if (pollErrors.current >= 3) {
+          setJob((prev) => ({
+            ...prev,
+            status: "error",
+            error: "Lost connection to API server after 3 retries. Is the server still running?",
+          }));
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+        }
       }
     }, 1500);
   };
 
   const handleStart = async () => {
     if (!account) return;
+    pollErrors.current = 0;
     setJob({ status: "sending", jobId: "", pages: [], error: "", log: [] });
 
     try {
@@ -199,7 +214,8 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
                   {job.status === "sending" ? "STARTING_INGEST..." : "GENERATING_PAGES..."}
                 </p>
               </div>
-              <LogView lines={job.log} />
+              <div className="font-mono text-[8px] text-green-700 uppercase">[v2] log={job.log.length} status={job.status}</div>
+              <LogView lines={job.log} isActive />
             </div>
           )}
 
@@ -220,7 +236,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
                   ))}
                 </div>
               </div>
-              <LogView lines={job.log} />
+              <LogView lines={job.log} isActive={false} />
               <p className="font-mono text-xs text-zinc-500">
                 Pages are now on-chain. Rebuild the site to see them:
                 <code className="block mt-1 text-zinc-400 bg-zinc-900 px-2 py-1">
@@ -252,7 +268,7 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
                 <p className="font-mono text-[10px] text-red-400 uppercase mb-1">INGEST_FAILED</p>
                 <p className="font-mono text-xs text-red-300 break-all whitespace-pre-wrap">{job.error}</p>
               </div>
-              <LogView lines={job.log.length > 0 ? job.log : job.error.split("\n")} />
+              <LogView lines={job.log.length > 0 ? job.log : job.error.split("\n")} isActive={false} />
               <div className="flex gap-3">
                 <button
                   onClick={() => setJob({ status: "idle", jobId: "", pages: [], error: "", log: [] })}
