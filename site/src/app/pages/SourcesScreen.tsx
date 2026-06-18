@@ -50,7 +50,6 @@ export function SourcesScreen() {
     setRefreshing(true);
     try {
       const dfs = await client.getDynamicFields({ parentId: WIKI_ID });
-      console.log("[SourcesScreen] getDynamicFields returned", dfs.data.length, "entries");
       const fetched: Source[] = [];
       const pageMap = new Map<string, { slug: string }[]>();
 
@@ -66,15 +65,6 @@ export function SourcesScreen() {
             const content = obj.data?.content as any;
             const fields = content?.fields;
             const value = fields?.value?.fields ?? {};
-            console.log("[SourcesScreen] RAW src entry", {
-              name,
-              objectId: df.objectId,
-              hasContent: !!obj.data?.content,
-              contentType: content?.dataType,
-              contentKeys: content ? Object.keys(content) : [],
-              fieldKeys: fields ? Object.keys(fields) : [],
-              valueKeys: value ? Object.keys(value) : [],
-            });
             const blob = value.blob ?? "";
             if (!blob) continue;
 
@@ -84,7 +74,6 @@ export function SourcesScreen() {
               blob,
               url: `${AGGREGATOR_URL}/${blob}`,
             });
-            console.log("[SourcesScreen] source:", { name, blob, title: value.title });
           } catch (e) {
             console.warn("[SourcesScreen] skip unreadable source entry:", name, e);
           }
@@ -103,11 +92,6 @@ export function SourcesScreen() {
               if (!pageMap.has(srcBlob)) pageMap.set(srcBlob, []);
               pageMap.get(srcBlob)!.push({ slug: name });
             }
-            if (sourcesList.length > 0) {
-              console.log("[SourcesScreen] page:", { slug: name, sources: sourcesList });
-            } else {
-              console.log("[SourcesScreen] page with NO sources:", { slug: name, valueKeys: Object.keys(value) });
-            }
           } catch (e) {
             console.warn("[SourcesScreen] skip unreadable page entry:", name, e);
           }
@@ -116,7 +100,6 @@ export function SourcesScreen() {
 
       setLiveSources(fetched);
       setLivePageSourceMap(pageMap);
-      console.log("[SourcesScreen] done — sources:", fetched.length, "pages cited:", [...pageMap.entries()].map(([k,v]) => `${k}=>${v.map(x=>x.slug)}`));
     } catch (e) {
       console.error("[SourcesScreen] fetchLiveSources failed:", e);
     }

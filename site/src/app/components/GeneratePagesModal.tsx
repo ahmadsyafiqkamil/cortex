@@ -25,7 +25,6 @@ interface GeneratePagesModalProps {
 function LogView({ lines, isActive }: { lines: string[]; isActive: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    console.log("[LogView v2] rendered, lines:", lines.length, "isActive:", isActive);
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
   }, [lines]);
 
@@ -214,7 +213,6 @@ export function GeneratePagesModal({ blobId, title, open, onClose, onPageGenerat
                   {job.status === "sending" ? "STARTING_INGEST..." : "GENERATING_PAGES..."}
                 </p>
               </div>
-              <div className="font-mono text-[8px] text-green-700 uppercase">[v2] log={job.log.length} status={job.status}</div>
               <LogView lines={job.log} isActive />
             </div>
           )}
